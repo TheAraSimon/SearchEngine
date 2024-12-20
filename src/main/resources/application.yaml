@@ -11,17 +11,21 @@ spring:
        dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: create-drop
-    show-sql: true
+#    show-sql: true
 
 indexing-settings:
   sites:
     - url: https://sendel.ru/
       name: Sendel
+    - url: https://nikoartgallery.com/
+      name: NikoArtGallery
+
+
+
+#    - url: https://dimonvideo.ru/
+#      name: DimonVideo
+
 
 connection-profile:
   userAgent: FirstSearchBot
   referrer: http://www.google.com
-
-logging:
-  level:
-    root: info

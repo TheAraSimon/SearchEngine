@@ -2,26 +2,18 @@ package searchengine.services;
 
 
 import lombok.RequiredArgsConstructor;
-import org.hibernate.exception.ConstraintViolationException;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
-import org.jsoup.UnsupportedMimeTypeException;
-import org.jsoup.nodes.Document;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.statistics.IndexingResponse;
-import searchengine.model.Page;
 import searchengine.model.Status;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.SitesMapper.SiteMapper;
 import searchengine.services.SitesMapper.WebPageNode;
 
-import java.net.SocketTimeoutException;
 import java.time.Instant;
 import java.util.concurrent.ForkJoinPool;
 
@@ -50,6 +42,10 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
                 WebPageNode rootNode = new WebPageNode(site.getUrl());
                 pool.invoke(new SiteMapper(site.getUrl(), rootNode, site.getUrl(), connectionProfile, pageRepository, siteRepository));
                 pool.shutdown();
+                searchengine.model.Site siteToSaveInRepository = siteRepository.findSiteByUrl(site.getUrl());
+                siteToSaveInRepository.setStatusTime(Instant.now());
+                siteToSaveInRepository.setStatus(Status.INDEXED);
+                siteRepository.save(siteToSaveInRepository);
             });
 
             IndexingResponse successfulResponse = new IndexingResponse();
@@ -59,7 +55,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     }
 
     @Transactional
-    public void saveSiteInSiteRepository (Site site) {
+    public void saveSiteInSiteRepository(Site site) {
         searchengine.model.Site siteToSaveInRepository = new searchengine.model.Site();
         siteToSaveInRepository.setStatus(Status.INDEXING);
         siteToSaveInRepository.setStatusTime(Instant.now());
@@ -70,7 +66,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     }
 
     @Transactional
-    public void deleteSiteFromSiteRepository (Site site) {
+    public void deleteSiteFromSiteRepository(Site site) {
         if (siteRepository.existsSiteByUrl(site.getUrl())) {
             siteRepository.deleteSiteByUrl(site.getUrl());
         }
