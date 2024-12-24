@@ -10,13 +10,15 @@ spring:
       hibernate:
        dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update
 #    show-sql: true
 
 indexing-settings:
   sites:
     - url: https://sendel.ru/
       name: Sendel
+    - url: https://nikoartgallery.com/
+      name: NikoArtGallery
     - url: https://nikoartgallery.com/
       name: NikoArtGallery
 
