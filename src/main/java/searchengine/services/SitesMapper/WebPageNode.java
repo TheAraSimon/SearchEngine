@@ -1,7 +1,6 @@
 package searchengine.services.SitesMapper;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +14,7 @@ public class WebPageNode {
         this.url = url;
         this.children = new ArrayList<>();
     }
+
     public void addChild(WebPageNode child) {
         children.add(child);
     }

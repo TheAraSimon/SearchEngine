@@ -2,15 +2,15 @@ package searchengine.model;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 
 @Entity
 @Getter
 @Setter
-@Table(name = "page", indexes = {@Index(name = "idx_path", columnList = "path", unique = true)})
+@Table(name = "page", indexes = {
+        @Index(name = "idx_site_path", columnList = "site_id, path", unique = true)
+})
 public class Page {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

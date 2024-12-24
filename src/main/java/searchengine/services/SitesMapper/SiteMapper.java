@@ -1,8 +1,6 @@
 package searchengine.services.SitesMapper;
 
 import lombok.RequiredArgsConstructor;
-import org.hibernate.exception.GenericJDBCException;
-import org.hibernate.exception.SQLGrammarException;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.UnsupportedMimeTypeException;
@@ -10,9 +8,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Bean;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.model.Page;
@@ -21,7 +17,6 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
 import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -62,9 +57,12 @@ public class SiteMapper extends RecursiveTask<Void> {
 
             Document document = response.parse();
 
-            if (isValidLink(url) && !pageRepository.existsPageByPath(url)) {
+            if (isValidLink(url) && !pageRepository.existsPageBySiteAndPath(siteToUpdate,url)) {
                 savePageInPageRepository(url, document, statusCode, siteToUpdate);
+            } else {
+                logger.info("Страница уже существует в базе данных: {}", url);
             }
+
             Elements links = document.select("a[href]");
             links.stream()
                     .map(link -> link.attr("abs:href"))
@@ -77,20 +75,26 @@ public class SiteMapper extends RecursiveTask<Void> {
                     });
 
         } catch (UnsupportedMimeTypeException | SocketTimeoutException e) {
-            logger.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+            System.out.print("");
+//            logger.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
         } catch (Exception e) {
-            logger.error("Ошибка при обработке URL: {}", url, e);
+            logger.error("Ошибка при обработке URL: {}", url + domain, e);
         }
         return null;
     }
 
-    private void savePageInPageRepository(String link, Document document, int statusCode, Site siteToUpdate) {
+    @Transactional
+    public void savePageInPageRepository(String link, Document document, int statusCode, Site siteToUpdate) {
         Page page = new Page();
         page.setSite(siteToUpdate);
         page.setPath(link.substring(domain.length()));
         page.setCode(statusCode);
         page.setContent(document.html());
-        pageRepository.save(page);
+        try {
+            pageRepository.save(page);
+        } catch (Exception e) {
+            logger.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", link + domain);
+        }
         siteToUpdate.setStatusTime(Instant.now());
         siteRepository.save(siteToUpdate);
     }

@@ -51,14 +51,18 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         try {
             siteDatabaseService.deleteSiteByUrl(site);
             siteDatabaseService.saveSite(site);
-
-            ForkJoinPool pool = new ForkJoinPool();
-            WebPageNode rootNode = new WebPageNode(site.getUrl());
-            pool.invoke(new SiteMapper(site.getUrl(), rootNode, site.getUrl(), connectionProfile, pageRepository, siteRepository));
-            pool.shutdown();
-            pool.awaitTermination(60, TimeUnit.MINUTES);
-
-            siteDatabaseService.updateSiteStatus(site.getUrl(), Status.INDEXED, null);
+            if (siteDatabaseService.isSiteAccessible(site, connectionProfile)) {
+                ForkJoinPool pool = new ForkJoinPool();
+                WebPageNode rootNode = new WebPageNode(site.getUrl());
+                pool.invoke(new SiteMapper(site.getUrl(), rootNode, site.getUrl(), connectionProfile, pageRepository, siteRepository));
+                pool.shutdown();
+                if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
+                    String errorMessage = "Error indexing site " + site.getUrl() + ": site is indexing for more than 1 hour.";
+                    siteDatabaseService.updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+                } else {
+                    siteDatabaseService.updateSiteStatus(site.getUrl(), Status.INDEXED, null);
+                }
+            }
         } catch (Exception e) {
             String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
             siteDatabaseService.updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
