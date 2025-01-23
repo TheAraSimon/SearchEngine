@@ -17,33 +17,6 @@ indexing-settings:
   sites:
     - url: https://sendel.ru/
       name: Sendel
-    - url: https://nikoartgallery.com/
-      name: NikoArtGallery
-    - url: https://nikoartgallery.com/
-      name: NikoArtGallery
-    - url: http://www.playback.ru/
-      name: Playback
-    - url: https://volochek.life/
-      name: Volochek
-    - url: http://radiomv.ru/
-      name: Radiomv
-    - url: https://ipfran.ru/
-      name: Ipfran
-    - url: https://dimonvideo.ru/
-      name: Dimonvideo
-    - url: https://et-cetera.ru/mobile/
-      name: Cetera
-    - url: https://www.lutherancathedral.ru/
-      name: Lutherancathedral
-    - url: https://dombulgakova.ru/
-      name: Dombulgakova
-    - url: https://www.svetlovka.ru/
-      name: Svetlovka
-
-
-
-#    - url: https://dimonvideo.ru/
-#      name: DimonVideo
 
 
 connection-profile:

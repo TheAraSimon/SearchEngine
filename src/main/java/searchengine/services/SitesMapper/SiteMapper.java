@@ -1,20 +1,20 @@
 package searchengine.services.SitesMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
-import searchengine.model.Page;
+import searchengine.dto.indexing.PageDto;
+import searchengine.dto.indexing.SiteDto;
 import searchengine.model.Site;
-import searchengine.repositories.PageRepository;
-import searchengine.repositories.SiteRepository;
+import searchengine.model.Status;
+import searchengine.services.repositoryServices.PageCRUDService;
+import searchengine.services.repositoryServices.SiteCRUDService;
 
 import java.net.SocketTimeoutException;
 import java.time.Instant;
@@ -23,17 +23,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
 
 @RequiredArgsConstructor
+@Slf4j
 public class SiteMapper extends RecursiveTask<Void> {
-
-    private static final Logger logger = LoggerFactory.getLogger(SiteMapper.class);
     private static final Set<String> visitedUrls = ConcurrentHashMap.newKeySet();
 
     private final String url;
     private final WebPageNode currentNode;
-    private final String domain;
+    private final SiteDto siteDto;
     private final ConnectionProfile connectionProfile;
-    private final PageRepository pageRepository;
-    private final SiteRepository siteRepository;
+    private final PageCRUDService pageCRUDService;
+    private final SiteCRUDService siteCRUDService;
 
     @Override
     @Transactional
@@ -41,8 +40,6 @@ public class SiteMapper extends RecursiveTask<Void> {
         if (!visitedUrls.add(url)) {
             return null;
         }
-
-        Site siteToUpdate = siteRepository.findSiteByUrl(domain);
 
         try {
             Thread.sleep(500 + (int) (Math.random() * 4500));
@@ -57,10 +54,10 @@ public class SiteMapper extends RecursiveTask<Void> {
 
             Document document = response.parse();
 
-            if (isValidLink(url) && !pageRepository.existsPageBySiteAndPath(siteToUpdate,url)) {
-                savePageInPageRepository(url, document, statusCode, siteToUpdate);
+            if (isValidLink(url) && pageCRUDService.getByUrl(url.substring(siteDto.getUrl().length())) != null) {
+                createPageDto(url, document, statusCode);
             } else {
-                logger.info("Страница уже существует в базе данных: {}", url);
+                log.info("Страница уже существует в базе данных: {}", url);
             }
 
             Elements links = document.select("a[href]");
@@ -70,39 +67,38 @@ public class SiteMapper extends RecursiveTask<Void> {
                     .forEach(link -> {
                         WebPageNode childNode = new WebPageNode(link);
                         currentNode.addChild(childNode);
-                        SiteMapper task = new SiteMapper(link, childNode, domain, connectionProfile, pageRepository, siteRepository);
+                        SiteMapper task = new SiteMapper(link, childNode, siteDto, connectionProfile, pageCRUDService, siteCRUDService);
                         task.fork();
                     });
 
         } catch (UnsupportedMimeTypeException | SocketTimeoutException e) {
-            System.out.print("");
-//            logger.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+            log.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
         } catch (Exception e) {
-            logger.error("Ошибка при обработке URL: {}", url + domain, e);
+            log.error("Ошибка при обработке URL: {}", url, e);
         }
         return null;
     }
 
     @Transactional
-    public void savePageInPageRepository(String link, Document document, int statusCode, Site siteToUpdate) {
-        Page page = new Page();
-        page.setSite(siteToUpdate);
-        page.setPath(link.substring(domain.length()));
-        page.setCode(statusCode);
-        page.setContent(document.html());
+    public void createPageDto (String link, Document document, int statusCode) {
+        PageDto pageDto = new PageDto();
+        pageDto.setSite(siteCRUDService.mapToModel(siteDto));
+        pageDto.setPath(link.substring(siteDto.getUrl().length()));
+        pageDto.setCode(statusCode);
+        pageDto.setContent(document.html());
         try {
-            pageRepository.save(page);
+            pageCRUDService.create(pageDto);
         } catch (Exception e) {
-            logger.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", link + domain);
+            log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", link);
         }
-        siteToUpdate.setStatusTime(Instant.now());
-        siteRepository.save(siteToUpdate);
+        siteDto.setStatusTime(Instant.now());
+        siteCRUDService.update(siteDto);
     }
 
 
     private boolean isValidLink(String link) {
-        return link.startsWith(domain)
+        return link.startsWith(siteDto.getUrl())
                 && !link.contains("#")
-                && !link.equals(domain);
+                && !link.equals(siteDto.getUrl());
     }
 }

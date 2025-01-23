@@ -1,18 +1,23 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.dto.statistics.IndexingResponse;
+import searchengine.dto.indexing.IndexingResponse;
+import searchengine.dto.indexing.SiteDto;
 import searchengine.model.Status;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.SitesMapper.SiteMapper;
 import searchengine.services.SitesMapper.WebPageNode;
+import searchengine.services.repositoryServices.SiteCRUDService;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.*;
 
@@ -23,7 +28,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     private final SiteRepository siteRepository;
     private final SitesList sites;
     private final ConnectionProfile connectionProfile;
-    private final SiteDatabaseService siteDatabaseService;
+    private final SiteCRUDService siteCRUDService;
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
@@ -49,8 +54,8 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     @Transactional
     public void indexSite(Site site) {
         try {
-            siteDatabaseService.deleteSiteByUrl(site);
-            siteDatabaseService.saveSite(site);
+            siteCRUDService.deleteByUrl(site.getUrl());
+            siteCRUDService.create(createSiteDto(site));
             if (siteDatabaseService.isSiteAccessible(site, connectionProfile)) {
                 ForkJoinPool pool = new ForkJoinPool();
                 WebPageNode rootNode = new WebPageNode(site.getUrl());
@@ -66,6 +71,47 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         } catch (Exception e) {
             String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
             siteDatabaseService.updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+        }
+    }
+
+    public SiteDto createSiteDto (Site site) {
+        SiteDto siteDto = new SiteDto();
+        siteDto.setStatus(Status.INDEXING);
+        siteDto.setStatusTime(Instant.now());
+        siteDto.setLastError(null);
+        siteDto.setUrl(site.getUrl());
+        siteDto.setName(site.getName());
+        return siteDto;
+    }
+
+
+    public void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
+        SiteDto siteDto = siteCRUDService.getByUrl(siteUrl);
+        if (siteDto != null) {
+            siteDto.setStatus(status);
+            siteDto.setStatusTime(Instant.now());
+            siteDto.setLastError(errorMessage);
+            siteCRUDService.update(siteDto);
+        }
+    }
+    public boolean isSiteAccessible(Site site) {
+        try {
+            Connection.Response response = Jsoup.connect(site.getUrl())
+                    .userAgent(connectionProfile.getUserAgent())
+                    .referrer(connectionProfile.getReferrer())
+                    .timeout(5000)
+                    .ignoreHttpErrors(true)
+                    .execute();
+            int statusCode = response.statusCode();
+            if (!(statusCode >= 200 && statusCode < 300)) {
+                updateSiteStatus(site.getUrl(), Status.FAILED, "Site is not available. Error code: " + statusCode);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
+            updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+            return false;
         }
     }
 }

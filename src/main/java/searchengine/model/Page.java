@@ -2,6 +2,8 @@ package searchengine.model;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 
@@ -19,9 +21,10 @@ public class Page {
 
     @ManyToOne
     @JoinColumn(name = "site_id")
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
-    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(255)")
+    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(512)")
     private String path;
 
     @Column(name = "code", nullable = false, columnDefinition = "INT")

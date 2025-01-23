@@ -9,5 +9,7 @@ import java.nio.file.Path;
 
 @Repository
 public interface PageRepository extends JpaRepository<Page, Integer> {
-    boolean existsPageBySiteAndPath (Site site, String path);
+    void deletePageByPath (String path);
+    boolean existsPageByPath (String path);
+    Page findPageByPath (String path);
 }
