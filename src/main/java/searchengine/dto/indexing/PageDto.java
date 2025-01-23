@@ -6,7 +6,7 @@ import searchengine.model.Site;
 @Data
 public class PageDto {
     private Integer id;
-    private Site site;
+    private Integer site;
     private String path;
     private Integer code;
     private String content;

@@ -11,7 +11,7 @@ import javax.persistence.*;
 @Getter
 @Setter
 @Table(name = "page", indexes = {
-        @Index(name = "idx_site_path", columnList = "site_id, path", unique = true)
+        @Index(name = "idx_path", columnList = "path", unique = true)
 })
 public class Page {
     @Id

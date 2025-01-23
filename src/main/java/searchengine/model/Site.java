@@ -37,6 +37,6 @@ public class Site {
     @Column(name = "name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String name;
 
-//    @OneToMany (mappedBy = "site", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+//    @OneToMany (mappedBy = "site", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 //    private List<Page> page;
 }

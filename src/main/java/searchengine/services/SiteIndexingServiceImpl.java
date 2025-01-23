@@ -15,6 +15,7 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 import searchengine.services.SitesMapper.SiteMapper;
 import searchengine.services.SitesMapper.WebPageNode;
+import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
 
 import java.time.Instant;
@@ -29,6 +30,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     private final SitesList sites;
     private final ConnectionProfile connectionProfile;
     private final SiteCRUDService siteCRUDService;
+    private final PageCRUDService pageCRUDService;
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
@@ -55,22 +57,23 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     public void indexSite(Site site) {
         try {
             siteCRUDService.deleteByUrl(site.getUrl());
-            siteCRUDService.create(createSiteDto(site));
-            if (siteDatabaseService.isSiteAccessible(site, connectionProfile)) {
+            SiteDto siteDto = createSiteDto(site);
+            siteCRUDService.create(siteDto);
+            if (isSiteAccessible(site)) {
                 ForkJoinPool pool = new ForkJoinPool();
                 WebPageNode rootNode = new WebPageNode(site.getUrl());
-                pool.invoke(new SiteMapper(site.getUrl(), rootNode, site.getUrl(), connectionProfile, pageRepository, siteRepository));
+                pool.invoke(new SiteMapper(site.getUrl(), rootNode, siteDto, connectionProfile, pageCRUDService, siteCRUDService));
                 pool.shutdown();
                 if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
                     String errorMessage = "Error indexing site " + site.getUrl() + ": site is indexing for more than 1 hour.";
-                    siteDatabaseService.updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+                    updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
                 } else {
-                    siteDatabaseService.updateSiteStatus(site.getUrl(), Status.INDEXED, null);
+                    updateSiteStatus(site.getUrl(), Status.INDEXED, null);
                 }
             }
         } catch (Exception e) {
             String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
-            siteDatabaseService.updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+            updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
         }
     }
 
@@ -83,7 +86,6 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         siteDto.setName(site.getName());
         return siteDto;
     }
-
 
     public void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
         SiteDto siteDto = siteCRUDService.getByUrl(siteUrl);

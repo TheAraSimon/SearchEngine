@@ -54,7 +54,7 @@ public class SiteMapper extends RecursiveTask<Void> {
 
             Document document = response.parse();
 
-            if (isValidLink(url) && pageCRUDService.getByUrl(url.substring(siteDto.getUrl().length())) != null) {
+            if (isValidLink(url) && pageCRUDService.getByUrl(url.substring(siteDto.getUrl().length())) == null) {
                 createPageDto(url, document, statusCode);
             } else {
                 log.info("Страница уже существует в базе данных: {}", url);
@@ -72,7 +72,7 @@ public class SiteMapper extends RecursiveTask<Void> {
                     });
 
         } catch (UnsupportedMimeTypeException | SocketTimeoutException e) {
-            log.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+//            log.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
         } catch (Exception e) {
             log.error("Ошибка при обработке URL: {}", url, e);
         }
@@ -82,7 +82,7 @@ public class SiteMapper extends RecursiveTask<Void> {
     @Transactional
     public void createPageDto (String link, Document document, int statusCode) {
         PageDto pageDto = new PageDto();
-        pageDto.setSite(siteCRUDService.mapToModel(siteDto));
+        pageDto.setSite(siteCRUDService.getByUrl(siteDto.getUrl()).getId());
         pageDto.setPath(link.substring(siteDto.getUrl().length()));
         pageDto.setCode(statusCode);
         pageDto.setContent(document.html());
@@ -91,8 +91,8 @@ public class SiteMapper extends RecursiveTask<Void> {
         } catch (Exception e) {
             log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", link);
         }
-        siteDto.setStatusTime(Instant.now());
-        siteCRUDService.update(siteDto);
+//        siteDto.setStatusTime(Instant.now());
+//        siteCRUDService.update(siteDto);
     }
 
 

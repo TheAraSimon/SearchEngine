@@ -10,14 +10,32 @@ spring:
       hibernate:
        dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
 #    show-sql: true
+logging:
+  level:
+    root: DEBUG
 
 indexing-settings:
   sites:
     - url: https://sendel.ru/
       name: Sendel
-
+#    - url: http://www.playback.ru/
+#      name: Playback
+#    - url: http://radiomv.ru/
+#      name: RadioMV
+#    - url: https://ipfran.ru/
+#      name: IPFran
+#    - url: https://dimonvideo.ru/
+#      name: DimonVideo
+#    - url: https://nikoartgallery.com/
+#      name: NikoGallery
+#    - url: https://www.lutherancathedral.ru/
+#      name: LutheranCathedral
+#    - url: https://dombulgakova.ru/
+#      name: DomBulgakova
+#    - url: https://www.svetlovka.ru/
+#      name: Svetlovka
 
 connection-profile:
   userAgent: FirstSearchBot

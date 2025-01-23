@@ -15,5 +15,4 @@ public class SiteDto {
     private String lastError;
     private String url;
     private String name;
-//    private List<Page> page;
 }

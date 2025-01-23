@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import searchengine.dto.indexing.PageDto;
 import searchengine.model.Page;
 import searchengine.model.Site;
+import searchengine.model.Status;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
@@ -14,14 +15,12 @@ import java.time.Instant;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class PageCRUDService implements CRUDService<PageDto> {
-    private final SiteRepository siteRepository;
+public class PageCRUDService {
     private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
 
-    @Override
     public PageDto getByUrl(String path) {
-        if (pageRepository.existsPageByPath(path)) {
-            log.warn("Page " + path + " was not found.");
+        if (!pageRepository.existsPageByPath(path)) {
             return null;
         } else {
             log.info("Get page by path: " + path);
@@ -30,26 +29,28 @@ public class PageCRUDService implements CRUDService<PageDto> {
         }
     }
 
-    @Override
     public void create(PageDto pageDto) {
-        pageRepository.save(mapToModel(pageDto));
-        Site site = siteRepository.findById(pageDto.getSite().getId()).orElseThrow();
+        Site site = siteRepository.findById(pageDto.getSite()).orElseThrow();
         site.setStatusTime(Instant.now());
         siteRepository.save(site);
-        log.info("Create page");
+        Page page = mapToModel(pageDto);
+        page.setSite(site);
+        pageRepository.save(page);
     }
 
-    @Override
     public void update(PageDto pageDto) {
         if (!pageRepository.existsPageByPath(pageDto.getPath())) {
             log.warn("Page ".concat(pageDto.getPath()).concat(" was not found."));
         } else {
-            log.info("Update" + pageDto.getPath());
+            Site site = siteRepository.findById(pageDto.getSite()).orElseThrow();
+            site.setStatusTime(Instant.now());
+            Page page = mapToModel(pageDto);
+            page.setSite(site);
             pageRepository.save(mapToModel(pageDto));
+            log.info("Update" + pageDto.getPath());
         }
     }
 
-    @Override
     public void deleteByUrl(String path) {
         if (pageRepository.existsPageByPath(path)) {
             pageRepository.deletePageByPath(path);
@@ -59,7 +60,7 @@ public class PageCRUDService implements CRUDService<PageDto> {
     public static PageDto mapToDto(Page page) {
         PageDto pageDto = new PageDto();
         pageDto.setId(page.getId());
-        pageDto.setSite(page.getSite());
+        pageDto.setSite(page.getSite().getId());
         pageDto.setPath(page.getPath());
         pageDto.setCode(page.getCode());
         pageDto.setContent(page.getContent());
@@ -69,7 +70,6 @@ public class PageCRUDService implements CRUDService<PageDto> {
     public static Page mapToModel(PageDto pageDto) {
         Page page = new Page();
         page.setId(pageDto.getId());
-        page.setSite(pageDto.getSite());
         page.setPath(pageDto.getPath());
         page.setCode(pageDto.getCode());
         page.setContent(pageDto.getContent());
