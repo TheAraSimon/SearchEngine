@@ -11,10 +11,6 @@ import searchengine.config.SitesList;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.dto.indexing.SiteDto;
 import searchengine.model.Status;
-import searchengine.repositories.PageRepository;
-import searchengine.repositories.SiteRepository;
-import searchengine.services.SitesMapper.SiteMapper;
-import searchengine.services.SitesMapper.WebPageNode;
 import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
 
@@ -25,8 +21,6 @@ import java.util.concurrent.*;
 @Service
 @RequiredArgsConstructor
 public class SiteIndexingServiceImpl implements SiteIndexingService {
-    private final PageRepository pageRepository;
-    private final SiteRepository siteRepository;
     private final SitesList sites;
     private final ConnectionProfile connectionProfile;
     private final SiteCRUDService siteCRUDService;
@@ -61,8 +55,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             siteCRUDService.create(siteDto);
             if (isSiteAccessible(site)) {
                 ForkJoinPool pool = new ForkJoinPool();
-                WebPageNode rootNode = new WebPageNode(site.getUrl());
-                pool.invoke(new SiteMapper(site.getUrl(), rootNode, siteDto, connectionProfile, pageCRUDService, siteCRUDService));
+                pool.invoke(new SiteMapper(site.getUrl(), siteDto, connectionProfile, pageCRUDService, siteCRUDService));
                 pool.shutdown();
                 if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
                     String errorMessage = "Error indexing site " + site.getUrl() + ": site is indexing for more than 1 hour.";
@@ -76,7 +69,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
         }
     }
-
+    @Transactional
     public SiteDto createSiteDto (Site site) {
         SiteDto siteDto = new SiteDto();
         siteDto.setStatus(Status.INDEXING);
@@ -87,6 +80,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         return siteDto;
     }
 
+    @Transactional
     public void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
         SiteDto siteDto = siteCRUDService.getByUrl(siteUrl);
         if (siteDto != null) {
@@ -96,6 +90,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             siteCRUDService.update(siteDto);
         }
     }
+    @Transactional
     public boolean isSiteAccessible(Site site) {
         try {
             Connection.Response response = Jsoup.connect(site.getUrl())

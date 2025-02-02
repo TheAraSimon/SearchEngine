@@ -11,7 +11,7 @@ import javax.persistence.*;
 @Getter
 @Setter
 @Table(name = "page", indexes = {
-        @Index(name = "idx_path", columnList = "path", unique = true)
+        @Index(name = "idx_path_site", columnList = "path, site_id", unique = true)
 })
 public class Page {
     @Id
@@ -24,7 +24,7 @@ public class Page {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
-    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(512)")
+    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(255)")
     private String path;
 
     @Column(name = "code", nullable = false, columnDefinition = "INT")

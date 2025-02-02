@@ -3,6 +3,7 @@ package searchengine.services.repositoryServices;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.indexing.PageDto;
 import searchengine.model.Page;
 import searchengine.model.Site;
@@ -11,6 +12,7 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -19,13 +21,13 @@ public class PageCRUDService {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
 
-    public PageDto getByUrl(String path) {
-        if (!pageRepository.existsPageByPath(path)) {
+    public PageDto getByUrlAndSiteId(String path, Integer site) {
+        Optional <Page> page = pageRepository.findByPathAndSiteId(path, site);
+        if (page.isEmpty()) {
             return null;
         } else {
             log.info("Get page by path: " + path);
-            Page page = pageRepository.findPageByPath(path);
-            return mapToDto(page);
+            return mapToDto(page.get());
         }
     }
 

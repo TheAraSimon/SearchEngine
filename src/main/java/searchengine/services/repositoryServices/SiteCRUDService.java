@@ -3,9 +3,9 @@ package searchengine.services.repositoryServices;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.indexing.SiteDto;
 import searchengine.model.Site;
-import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 @Service
 @RequiredArgsConstructor
@@ -13,7 +13,6 @@ import searchengine.repositories.SiteRepository;
 public class SiteCRUDService {
 
     private final SiteRepository siteRepository;
-    private final PageRepository pageRepository;
 
     public SiteDto getByUrl(String url) {
         if (!siteRepository.existsSiteByUrl(url)) {
@@ -40,6 +39,7 @@ public class SiteCRUDService {
         }
     }
 
+    @Transactional
     public void deleteByUrl(String url) {
         if (siteRepository.existsSiteByUrl(url)) {
             siteRepository.deleteSiteByUrl(url);
