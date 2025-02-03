@@ -18,6 +18,7 @@ import java.net.SocketTimeoutException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -29,11 +30,29 @@ public class SiteMapper extends RecursiveTask<Void> {
     private final ConnectionProfile connectionProfile;
     private final PageCRUDService pageCRUDService;
     private final SiteCRUDService siteCRUDService;
+    private static final AtomicBoolean stopRequested = new AtomicBoolean(false);
+
+    public static void requestStop() {
+        stopRequested.set(true);
+    }
+
+    public static void requestStart() {
+        stopRequested.set(false);
+    }
+
+    public static void clearVisitedUrls() {
+        visitedUrls.clear();
+    }
 
     @Override
     @Transactional
     public Void compute() {
         if (!visitedUrls.add(url)) {
+            return null;
+        }
+
+        if (Thread.currentThread().isInterrupted() || stopRequested.get()) {
+            log.info("Задача прервана для URL: {}", url);
             return null;
         }
 
@@ -63,12 +82,15 @@ public class SiteMapper extends RecursiveTask<Void> {
                     .map(link -> link.attr("abs:href"))
                     .filter(this::isValidLink)
                     .forEach(link -> {
-                        SiteMapper task = new SiteMapper(link, siteDto, connectionProfile, pageCRUDService, siteCRUDService);
-                        task.fork();
+                        if (!stopRequested.get()) {
+                            SiteMapper task = new SiteMapper(link, siteDto, connectionProfile, pageCRUDService, siteCRUDService);
+                            task.fork();
+                        }
                     });
 
         } catch (UnsupportedMimeTypeException | SocketTimeoutException e) {
-            log.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+            //TODO: add logging below
+//            log.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
         } catch (Exception e) {
             log.error("Ошибка при обработке URL: {}", url, e);
         }

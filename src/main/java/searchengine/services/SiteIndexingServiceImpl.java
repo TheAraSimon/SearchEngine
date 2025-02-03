@@ -17,6 +17,7 @@ import searchengine.services.repositoryServices.SiteCRUDService;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
@@ -26,25 +27,53 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
 
-    private final ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private ExecutorService executorService;
+    private final AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     @Override
     @Transactional
     public IndexingResponse startIndexing() {
+        if (isIndexing.get()) {
+            return createErrorResponse("Indexing is in process");
+        }
+
         List<Site> siteList = sites.getSites().stream().distinct().toList();
         if (siteList.isEmpty()) {
-            IndexingResponse errorResponse = new IndexingResponse();
-            errorResponse.setError("Sites list is empty");
-            errorResponse.setResult(false);
-            return errorResponse;
+            return createErrorResponse("Sites list is empty");
         }
+
+        isIndexing.set(true);
+        SiteMapper.requestStart();
+        SiteMapper.clearVisitedUrls();
+
+        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
+            executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        }
+
         for (Site site : siteList) {
             executorService.submit(() -> indexSite(site));
         }
+
         executorService.shutdown();
-        IndexingResponse successfulResponse = new IndexingResponse();
-        successfulResponse.setResult(true);
-        return successfulResponse;
+        //TODO: add logging
+        return createSuccessfulResponse();
+    }
+
+    @Override
+    @Transactional
+    public IndexingResponse stopIndexing() {
+        if (!isIndexing.get()) {
+            //TODO: delete sout and add logging
+            System.out.println("Индексация не запущена");
+            return createErrorResponse("Индексация не запущена");
+        } else {
+            SiteMapper.requestStop();
+            executorService.shutdownNow();
+            isIndexing.set(false);
+            //TODO: delete sout and add logging
+            System.out.println("Индексация остановлена пользователем");
+            return createSuccessfulResponse();
+        }
     }
 
     @Transactional
@@ -64,6 +93,9 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
                     updateSiteStatus(site.getUrl(), Status.INDEXED, null);
                 }
             }
+        } catch (InterruptedException e) {
+            String errorMessage = "Индексация остановлена пользователем";
+            updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
         } catch (Exception e) {
             String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
             updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
@@ -110,5 +142,18 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
             return false;
         }
+    }
+
+    private IndexingResponse createErrorResponse(String message) {
+        IndexingResponse response = new IndexingResponse();
+        response.setError(message);
+        response.setResult(false);
+        return response;
+    }
+
+    private IndexingResponse createSuccessfulResponse() {
+        IndexingResponse response = new IndexingResponse();
+        response.setResult(true);
+        return response;
     }
 }
