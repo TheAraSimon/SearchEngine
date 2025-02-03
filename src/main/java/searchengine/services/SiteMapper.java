@@ -70,7 +70,7 @@ public class SiteMapper extends RecursiveTask<Void> {
             Document document = response.parse();
 
             if (isValidLink(url)
-                    && pageCRUDService.getByUrlAndSiteId(url.substring(siteDto.getUrl().length()), siteDto.getId()) == null) {
+                    && pageCRUDService.getByUrlAndSiteId(url.substring(siteDto.getUrl().length() - 1), siteDto.getId()) == null) {
                 createPageDto(url, document, statusCode);
             } else {
                 log.info("Страница уже существует в базе данных: {}", url);
@@ -101,7 +101,7 @@ public class SiteMapper extends RecursiveTask<Void> {
     public void createPageDto(String link, Document document, int statusCode) {
         PageDto pageDto = new PageDto();
         pageDto.setSite(siteCRUDService.getByUrl(siteDto.getUrl()).getId());
-        pageDto.setPath(link.substring(siteDto.getUrl().length()));
+        pageDto.setPath(link.substring(siteDto.getUrl().length() - 1));
         pageDto.setCode(statusCode);
         pageDto.setContent(document.html());
         try {
@@ -114,7 +114,6 @@ public class SiteMapper extends RecursiveTask<Void> {
 
     private boolean isValidLink(String link) {
         return link.startsWith(siteDto.getUrl())
-                && !link.contains("#")
-                && !link.equals(siteDto.getUrl());
+                && !link.contains("#");
     }
 }
