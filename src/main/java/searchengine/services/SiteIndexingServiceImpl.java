@@ -1,10 +1,8 @@
 package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -21,62 +19,80 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SiteIndexingServiceImpl implements SiteIndexingService {
+
     private final SitesList sites;
     private final ConnectionProfile connectionProfile;
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
-
     private ExecutorService executorService;
     private final AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     @Override
-    @Transactional
     public IndexingResponse startIndexing() {
         if (isIndexing.get()) {
-            return createErrorResponse("Indexing is in process");
+            return createErrorResponse("Indexing is already in progress");
         }
 
         List<Site> siteList = sites.getSites().stream().distinct().toList();
         if (siteList.isEmpty()) {
-            return createErrorResponse("Sites list is empty");
+            return createErrorResponse("Site list is empty");
         }
 
         isIndexing.set(true);
         SiteMapper.requestStart();
         SiteMapper.clearVisitedUrls();
 
-        if (executorService == null || executorService.isShutdown() || executorService.isTerminated()) {
-            executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        }
-
-        for (Site site : siteList) {
-            executorService.submit(() -> indexSite(site));
-        }
+        executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        siteList.forEach(site -> executorService.submit(() -> indexSite(site)));
 
         executorService.shutdown();
-        //TODO: add logging
+        log.info("Indexing started for {} sites", siteList.size());
         return createSuccessfulResponse();
     }
 
     @Override
-    @Transactional
     public IndexingResponse stopIndexing() {
         if (!isIndexing.get()) {
-            //TODO: delete sout and add logging
-            System.out.println("Индексация не запущена");
+            log.warn("Индексация не запущена");
             return createErrorResponse("Индексация не запущена");
-        } else {
-            SiteMapper.requestStop();
-            executorService.shutdownNow();
-            isIndexing.set(false);
-            //TODO: delete sout and add logging
-            System.out.println("Индексация остановлена пользователем");
+        }
+        SiteMapper.requestStop();
+        executorService.shutdownNow();
+        isIndexing.set(false);
+        log.info("Индексация остановлена пользователем");
+        return createSuccessfulResponse();
+    }
+
+    @Override
+    public IndexingResponse indexPage(String url) {
+        if (!isValidUrl(url)) {
+            log.warn("Данная страница ({}) находится за пределами сайтов, указанных в конфигурационном файле", url);
+            return createErrorResponse("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+        }
+        Site site = getSiteDtoFromUrl(url);
+        if (!isSiteAccessible(site)) {
+            return createErrorResponse("Данная страница недоступна");
+        }
+        try {
+            if (pageCRUDService.getByUrlAndSiteId(url.substring(site.getUrl().length() - 1), siteCRUDService.getByUrl(site.getUrl()).getId()) != null) {
+                log.warn("Страница {} уже есть в базе данных", url);
+                return createErrorResponse("Страница " +  url + " уже есть в базе данных");
+            }
+            UrlConnector urlConnector = new UrlConnector(site.getUrl(), connectionProfile);
+            SiteMapper siteMapper = new SiteMapper(url,
+                    createSiteDto(site),
+                    connectionProfile,
+                    pageCRUDService,
+                    siteCRUDService);
+            siteMapper.createPageDto(url, urlConnector.getDocument(), urlConnector.getStatusCode());
             return createSuccessfulResponse();
+        } catch (Exception e) {
+            return createErrorResponse(e.getMessage());
         }
     }
 
-    @Transactional
     public void indexSite(Site site) {
         try {
             siteCRUDService.deleteByUrl(site.getUrl());
@@ -87,22 +103,22 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
                 pool.invoke(new SiteMapper(site.getUrl(), siteDto, connectionProfile, pageCRUDService, siteCRUDService));
                 pool.shutdown();
                 if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
-                    String errorMessage = "Error indexing site " + site.getUrl() + ": site is indexing for more than 1 hour.";
+                    String errorMessage = "Indexing timeout (more than 1 hour) for site: " + site.getUrl();
                     updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
-                } else {
+                } else if (pool.awaitQuiescence(60, TimeUnit.MINUTES)) {
                     updateSiteStatus(site.getUrl(), Status.INDEXED, null);
                 }
             }
         } catch (InterruptedException e) {
-            String errorMessage = "Индексация остановлена пользователем";
-            updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+            log.warn("Индексация остановлена для сайта: {}", site.getUrl());
+            updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация остановлена пользователем");
         } catch (Exception e) {
-            String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
-            updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+            log.error("Error indexing site {}: {}", site.getUrl(), e.getMessage());
+            updateSiteStatus(site.getUrl(), Status.FAILED, "Error indexing site: " + e.getMessage());
         }
     }
-    @Transactional
-    public SiteDto createSiteDto (Site site) {
+
+    public SiteDto createSiteDto(Site site) {
         SiteDto siteDto = new SiteDto();
         siteDto.setStatus(Status.INDEXING);
         siteDto.setStatusTime(Instant.now());
@@ -112,7 +128,6 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         return siteDto;
     }
 
-    @Transactional
     public void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
         SiteDto siteDto = siteCRUDService.getByUrl(siteUrl);
         if (siteDto != null) {
@@ -122,26 +137,36 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             siteCRUDService.update(siteDto);
         }
     }
-    @Transactional
+
     public boolean isSiteAccessible(Site site) {
         try {
-            Connection.Response response = Jsoup.connect(site.getUrl())
-                    .userAgent(connectionProfile.getUserAgent())
-                    .referrer(connectionProfile.getReferrer())
-                    .timeout(5000)
-                    .ignoreHttpErrors(true)
-                    .execute();
-            int statusCode = response.statusCode();
+            UrlConnector urlConnector = new UrlConnector(site.getUrl(), connectionProfile);
+            int statusCode = urlConnector.getStatusCode();
             if (!(statusCode >= 200 && statusCode < 300)) {
-                updateSiteStatus(site.getUrl(), Status.FAILED, "Site is not available. Error code: " + statusCode);
+                String errorMessage = "Site is not available. Error code: " + statusCode;
+                updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+                log.warn(errorMessage);
                 return false;
             }
             return true;
         } catch (Exception e) {
             String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
             updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+            log.warn(errorMessage);
             return false;
         }
+    }
+
+    private Site getSiteDtoFromUrl(String url) {
+        List<Site> siteList = sites.getSites().stream().filter(site -> url.startsWith(site.getUrl())).toList();
+        if (siteList.size() != 1) {
+            log.error("Url " + url + " совпадает с несколькими сайтами из конфигурационного файла");
+        }
+        return siteList.get(0);
+    }
+
+    private boolean isValidUrl(String url) {
+        return sites.getSites().stream().anyMatch(site -> url.startsWith(site.getUrl()));
     }
 
     private IndexingResponse createErrorResponse(String message) {

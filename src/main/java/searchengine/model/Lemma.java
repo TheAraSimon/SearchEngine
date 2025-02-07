@@ -10,10 +10,9 @@ import javax.persistence.*;
 @Entity
 @Getter
 @Setter
-@Table(name = "page", indexes = {
-        @javax.persistence.Index(name = "idx_path_site", columnList = "path, site_id", unique = true)
-})
-public class Page {
+@Table(name = "lemma")
+public class Lemma {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id", nullable = false, columnDefinition = "INT")
@@ -24,13 +23,9 @@ public class Page {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Site site;
 
-    @Column(name = "path", nullable = false, columnDefinition = "VARCHAR(255)")
-    private String path;
+    @Column(name = "lemma", nullable = false, columnDefinition = "VARCHAR(255)")
+    private String lemma;
 
-    @Column(name = "code", nullable = false, columnDefinition = "INT")
-    private Integer code;
-
-    @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
-    private String content;
-
+    @Column(name = "frequency", nullable = false, columnDefinition = "INT")
+    private Integer frequency;
 }

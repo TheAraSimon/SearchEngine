@@ -2,8 +2,6 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Connection;
-import org.jsoup.Jsoup;
 import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -52,22 +50,15 @@ public class SiteMapper extends RecursiveTask<Void> {
         }
 
         if (Thread.currentThread().isInterrupted() || stopRequested.get()) {
-            log.info("Задача прервана для URL: {}", url);
+//            Turn on if required:
+//            log.info("Задача прервана для URL: {}", url);
             return null;
         }
 
         try {
-            Thread.sleep(500 + (int) (Math.random() * 4500));
-            Connection.Response response = Jsoup.connect(url)
-                    .userAgent(connectionProfile.getUserAgent())
-                    .referrer(connectionProfile.getReferrer())
-                    .timeout(5000)
-                    .ignoreHttpErrors(true)
-                    .execute();
-
-            int statusCode = response.statusCode();
-
-            Document document = response.parse();
+            UrlConnector urlConnector = new UrlConnector(url, connectionProfile);
+            int statusCode = urlConnector.getStatusCode();
+            Document document = urlConnector.getDocument();
 
             if (isValidLink(url)
                     && pageCRUDService.getByUrlAndSiteId(url.substring(siteDto.getUrl().length() - 1), siteDto.getId()) == null) {
@@ -87,9 +78,9 @@ public class SiteMapper extends RecursiveTask<Void> {
                             task.fork();
                         }
                     });
-
+            Thread.sleep(500 + (int) (Math.random() * 4500));
         } catch (UnsupportedMimeTypeException | SocketTimeoutException e) {
-            //TODO: add logging below
+//            Turn on if required:
 //            log.info("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
         } catch (Exception e) {
             log.error("Ошибка при обработке URL: {}", url, e);

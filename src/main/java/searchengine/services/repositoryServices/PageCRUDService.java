@@ -3,11 +3,9 @@ package searchengine.services.repositoryServices;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.indexing.PageDto;
 import searchengine.model.Page;
 import searchengine.model.Site;
-import searchengine.model.Status;
 import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
@@ -40,24 +38,24 @@ public class PageCRUDService {
         pageRepository.save(page);
     }
 
-    public void update(PageDto pageDto) {
-        if (!pageRepository.existsPageByPath(pageDto.getPath())) {
-            log.warn("Page ".concat(pageDto.getPath()).concat(" was not found."));
-        } else {
-            Site site = siteRepository.findById(pageDto.getSite()).orElseThrow();
-            site.setStatusTime(Instant.now());
-            Page page = mapToModel(pageDto);
-            page.setSite(site);
-            pageRepository.save(mapToModel(pageDto));
-            log.info("Update" + pageDto.getPath());
-        }
-    }
-
-    public void deleteByUrl(String path) {
-        if (pageRepository.existsPageByPath(path)) {
-            pageRepository.deletePageByPath(path);
-        }
-    }
+//    public void update(PageDto pageDto) {
+//        if (!pageRepository.existsPageByPath(pageDto.getPath())) {
+//            log.warn("Page ".concat(pageDto.getPath()).concat(" was not found."));
+//        } else {
+//            Site site = siteRepository.findById(pageDto.getSite()).orElseThrow();
+//            site.setStatusTime(Instant.now());
+//            Page page = mapToModel(pageDto);
+//            page.setSite(site);
+//            pageRepository.save(mapToModel(pageDto));
+//            log.info("Update" + pageDto.getPath());
+//        }
+//    }
+//
+//    public void deleteByUrl(String path) {
+//        if (pageRepository.existsPageByPath(path)) {
+//            pageRepository.deletePageByPath(path);
+//        }
+//    }
 
     public static PageDto mapToDto(Page page) {
         PageDto pageDto = new PageDto();
