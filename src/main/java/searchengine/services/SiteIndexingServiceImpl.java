@@ -6,14 +6,16 @@ import org.springframework.stereotype.Service;
 import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
-import searchengine.dto.indexing.IndexingResponse;
-import searchengine.dto.indexing.SiteDto;
+import searchengine.dto.indexing.*;
 import searchengine.model.Status;
+import searchengine.services.repositoryServices.IndexCRUDService;
+import searchengine.services.repositoryServices.LemmaCRUDService;
 import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -26,18 +28,21 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     private final ConnectionProfile connectionProfile;
     private final SiteCRUDService siteCRUDService;
     private final PageCRUDService pageCRUDService;
+    private final LemmaCRUDService lemmaCRUDService;
+    private final IndexCRUDService indexCRUDService;
     private ExecutorService executorService;
+    private final IndexingResponser indexingResponser = new IndexingResponser();
     private final AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     @Override
     public IndexingResponse startIndexing() {
         if (isIndexing.get()) {
-            return createErrorResponse("Indexing is already in progress");
+            return indexingResponser.createErrorResponse("Indexing is already in progress");
         }
 
         List<Site> siteList = sites.getSites().stream().distinct().toList();
         if (siteList.isEmpty()) {
-            return createErrorResponse("Site list is empty");
+            return indexingResponser.createErrorResponse("Site list is empty");
         }
 
         isIndexing.set(true);
@@ -49,54 +54,69 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
 
         executorService.shutdown();
         log.info("Indexing started for {} sites", siteList.size());
-        return createSuccessfulResponse();
+        return indexingResponser.createSuccessfulResponse();
     }
 
     @Override
     public IndexingResponse stopIndexing() {
         if (!isIndexing.get()) {
             log.warn("Индексация не запущена");
-            return createErrorResponse("Индексация не запущена");
+            return indexingResponser.createErrorResponse("Индексация не запущена");
         }
         SiteMapper.requestStop();
         executorService.shutdownNow();
         isIndexing.set(false);
         log.info("Индексация остановлена пользователем");
-        return createSuccessfulResponse();
+        return indexingResponser.createSuccessfulResponse();
     }
 
     @Override
     public IndexingResponse indexPage(String url) {
         if (!isValidUrl(url)) {
             log.warn("Данная страница ({}) находится за пределами сайтов, указанных в конфигурационном файле", url);
-            return createErrorResponse("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+            return indexingResponser.createErrorResponse("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
         }
-        Site site = getSiteDtoFromUrl(url);
+        Site site = getSiteFromUrl(url);
         if (!isSiteAccessible(site)) {
-            return createErrorResponse("Данная страница недоступна");
+            return indexingResponser.createErrorResponse("Данная страница недоступна");
         }
         try {
-            if (pageCRUDService.getByUrlAndSiteId(url.substring(site.getUrl().length() - 1), siteCRUDService.getByUrl(site.getUrl()).getId()) != null) {
+            PageDto pageDto = pageCRUDService.getByUrlAndSiteId(url.substring(site.getUrl().length() - 1), siteCRUDService.getByUrl(site.getUrl()).getId());
+            if (pageDto != null) {
+                lemmaCRUDService.deleteLemmasByIds(indexCRUDService.getLemmaIdsByPageId(pageDto.getId()));
+                pageCRUDService.deleteById(pageDto.getId());
                 log.warn("Страница {} уже есть в базе данных", url);
-                return createErrorResponse("Страница " +  url + " уже есть в базе данных");
             }
-            UrlConnector urlConnector = new UrlConnector(site.getUrl(), connectionProfile);
-            SiteMapper siteMapper = new SiteMapper(url,
-                    createSiteDto(site),
-                    connectionProfile,
-                    pageCRUDService,
-                    siteCRUDService);
-            siteMapper.createPageDto(url, urlConnector.getDocument(), urlConnector.getStatusCode());
-            return createSuccessfulResponse();
+            UrlConnector urlConnector = new UrlConnector(url, connectionProfile);
+            pageDto = pageCRUDService.createPageDto(url, urlConnector.getDocument(), urlConnector.getStatusCode(), siteCRUDService.getByUrl(site.getUrl()));
+            pageCRUDService.create(pageDto);
+
+            LemmaFinder lemmaFinder = LemmaFinder.getInstance();
+            Map<String, Integer> lemmas = lemmaFinder.collectLemmas(urlConnector.getDocument().text());
+            Integer pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
+            for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
+                LemmaDto lemmaDto = lemmaCRUDService.getByLemmaAndSiteId(entry.getKey(), siteCRUDService.getByUrl(site.getUrl()).getId());
+                if (lemmaDto == null) {
+                    lemmaDto = lemmaCRUDService.createLemmaDto(entry.getKey(), siteCRUDService.getByUrl(site.getUrl()).getId());
+                    lemmaCRUDService.create(lemmaDto);
+                } else {
+                    lemmaCRUDService.update(lemmaDto);
+                }
+                Float rank = entry.getValue().floatValue();
+                IndexDto indexDto = indexCRUDService.createIndexDto(lemmaDto.getLemma(), pageDto.getSite(), pageId, rank);
+                indexCRUDService.create(indexDto);
+            }
+            return indexingResponser.createSuccessfulResponse();
         } catch (Exception e) {
-            return createErrorResponse(e.getMessage());
+            e.printStackTrace();
+            return indexingResponser.createErrorResponse(e.getMessage());
         }
     }
 
     public void indexSite(Site site) {
         try {
             siteCRUDService.deleteByUrl(site.getUrl());
-            SiteDto siteDto = createSiteDto(site);
+            SiteDto siteDto = siteCRUDService.createSiteDto(site);
             siteCRUDService.create(siteDto);
             if (isSiteAccessible(site)) {
                 ForkJoinPool pool = new ForkJoinPool();
@@ -116,16 +136,6 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             log.error("Error indexing site {}: {}", site.getUrl(), e.getMessage());
             updateSiteStatus(site.getUrl(), Status.FAILED, "Error indexing site: " + e.getMessage());
         }
-    }
-
-    public SiteDto createSiteDto(Site site) {
-        SiteDto siteDto = new SiteDto();
-        siteDto.setStatus(Status.INDEXING);
-        siteDto.setStatusTime(Instant.now());
-        siteDto.setLastError(null);
-        siteDto.setUrl(site.getUrl());
-        siteDto.setName(site.getName());
-        return siteDto;
     }
 
     public void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
@@ -157,8 +167,8 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         }
     }
 
-    private Site getSiteDtoFromUrl(String url) {
-        List<Site> siteList = sites.getSites().stream().filter(site -> url.startsWith(site.getUrl())).toList();
+    private Site getSiteFromUrl(String url) {
+        List<Site> siteList = sites.getSites().stream().filter(site -> url.startsWith(site.getUrl())).distinct().toList();
         if (siteList.size() != 1) {
             log.error("Url " + url + " совпадает с несколькими сайтами из конфигурационного файла");
         }
@@ -167,18 +177,5 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
 
     private boolean isValidUrl(String url) {
         return sites.getSites().stream().anyMatch(site -> url.startsWith(site.getUrl()));
-    }
-
-    private IndexingResponse createErrorResponse(String message) {
-        IndexingResponse response = new IndexingResponse();
-        response.setError(message);
-        response.setResult(false);
-        return response;
-    }
-
-    private IndexingResponse createSuccessfulResponse() {
-        IndexingResponse response = new IndexingResponse();
-        response.setResult(true);
-        return response;
     }
 }

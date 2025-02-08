@@ -4,13 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.dto.indexing.IndexDto;
-import searchengine.dto.indexing.LemmaDto;
 import searchengine.model.Index;
-import searchengine.model.Lemma;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -20,6 +19,23 @@ public class IndexCRUDService {
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
+
+    public IndexDto createIndexDto(String lemma, Integer siteId, Integer pageId, Float rank) {
+        try {
+            IndexDto indexDto = new IndexDto();
+            indexDto.setLemma(lemmaRepository.findLemmaByLemmaAndSiteId(lemma, siteId).get().getId());
+            indexDto.setPage(pageRepository.findById(pageId).get().getId());
+            indexDto.setRank(rank);
+            return indexDto;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public List<Integer> getLemmaIdsByPageId(Integer pageId) {
+        return indexRepository.findLemmaIdsByPageId(pageId);
+    }
 
     public IndexDto getIndexByLemmaIdAndPageId(Integer lemmaId, Integer pageId) {
         Optional<Index> index = indexRepository.findIndexByLemmaIdAndPageId(lemmaId, pageId);
@@ -41,7 +57,7 @@ public class IndexCRUDService {
     }
 
     public void update(IndexDto indexDto) {
-        if (!indexRepository.existsById(indexDto.getId())){
+        if (!indexRepository.existsById(indexDto.getId())) {
             log.warn("Index with pageId"
                     .concat(indexDto.getPage().toString())
                     .concat(" and with lemmaId ")

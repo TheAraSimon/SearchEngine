@@ -28,6 +28,6 @@ public class Index {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Lemma lemma;
 
-    @Column(name = "rank", nullable = false, columnDefinition = "FLOAT")
+    @Column(name = "`rank`", nullable = false, columnDefinition = "FLOAT")
     private Float rank;
 }

@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.dto.indexing.PageDto;
 import searchengine.dto.indexing.SiteDto;
@@ -43,7 +42,6 @@ public class SiteMapper extends RecursiveTask<Void> {
     }
 
     @Override
-    @Transactional
     public Void compute() {
         if (!visitedUrls.add(url)) {
             return null;
@@ -62,7 +60,12 @@ public class SiteMapper extends RecursiveTask<Void> {
 
             if (isValidLink(url)
                     && pageCRUDService.getByUrlAndSiteId(url.substring(siteDto.getUrl().length() - 1), siteDto.getId()) == null) {
-                createPageDto(url, document, statusCode);
+                PageDto pageDto = pageCRUDService.createPageDto(url, document, statusCode, siteDto);
+                try {
+                    pageCRUDService.create(pageDto);
+                } catch (Exception e) {
+                    log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+                }
             } else {
                 log.info("Страница уже существует в базе данных: {}", url);
             }
@@ -87,21 +90,6 @@ public class SiteMapper extends RecursiveTask<Void> {
         }
         return null;
     }
-
-    @Transactional
-    public void createPageDto(String link, Document document, int statusCode) {
-        PageDto pageDto = new PageDto();
-        pageDto.setSite(siteCRUDService.getByUrl(siteDto.getUrl()).getId());
-        pageDto.setPath(link.substring(siteDto.getUrl().length() - 1));
-        pageDto.setCode(statusCode);
-        pageDto.setContent(document.html());
-        try {
-            pageCRUDService.create(pageDto);
-        } catch (Exception e) {
-            log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", link);
-        }
-    }
-
 
     private boolean isValidLink(String link) {
         return link.startsWith(siteDto.getUrl())

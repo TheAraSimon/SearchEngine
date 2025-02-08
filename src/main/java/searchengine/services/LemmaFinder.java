@@ -12,18 +12,20 @@ public class LemmaFinder {
     private final LuceneMorphology luceneMorphology;
     private static final String WORD_TYPE_REGEX = "\\W\\w&&[^а-яА-Я\\s]";
     private static final String[] particlesNames = new String[]{"МЕЖД", "ПРЕДЛ", "СОЮЗ", "ЧАСТ"};
+
     public static LemmaFinder getInstance() throws IOException {
-        LuceneMorphology morphology= new RussianLuceneMorphology();
+        LuceneMorphology morphology = new RussianLuceneMorphology();
         return new LemmaFinder(morphology);
     }
 
-    private LemmaFinder(){
+    private LemmaFinder() {
         throw new RuntimeException("Disallow construct");
     }
 
     private LemmaFinder(LuceneMorphology luceneMorphology) {
         this.luceneMorphology = luceneMorphology;
     }
+
     public Map<String, Integer> collectLemmas(String text) {
         String[] words = arrayContainsRussianWords(removeHtmlTags(text));
         HashMap<String, Integer> lemmas = new HashMap<>();
@@ -55,7 +57,8 @@ public class LemmaFinder {
         }
         return htmlContent.replaceAll("<[^>]*>", "");
     }
-//    public Set<String> getLemmaSet(String text) {
+
+    //    public Set<String> getLemmaSet(String text) {
 //        String[] textArray = arrayContainsRussianWords(text);
 //        Set<String> lemmaSet = new HashSet<>();
 //        for (String word : textArray) {
@@ -72,6 +75,7 @@ public class LemmaFinder {
     private boolean anyWordBaseBelongToParticle(List<String> wordBaseForms) {
         return wordBaseForms.stream().anyMatch(this::hasParticleProperty);
     }
+
     private boolean hasParticleProperty(String wordBase) {
         for (String property : particlesNames) {
             if (wordBase.toUpperCase().contains(property)) {
@@ -80,12 +84,14 @@ public class LemmaFinder {
         }
         return false;
     }
+
     private String[] arrayContainsRussianWords(String text) {
         return text.toLowerCase(Locale.ROOT)
                 .replaceAll("([^а-я\\s])", " ")
                 .trim()
                 .split("\\s+");
     }
+
     private boolean isCorrectWordForm(String word) {
         List<String> wordInfo = luceneMorphology.getMorphInfo(word);
         for (String morphInfo : wordInfo) {

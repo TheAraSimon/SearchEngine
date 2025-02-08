@@ -6,7 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import searchengine.dto.indexing.SiteDto;
 import searchengine.model.Site;
+import searchengine.model.Status;
 import searchengine.repositories.SiteRepository;
+
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -44,6 +48,16 @@ public class SiteCRUDService {
         if (siteRepository.existsSiteByUrl(url)) {
             siteRepository.deleteSiteByUrl(url);
         }
+    }
+
+    public SiteDto createSiteDto(searchengine.config.Site site) {
+        SiteDto siteDto = new SiteDto();
+        siteDto.setStatus(Status.INDEXING);
+        siteDto.setStatusTime(Instant.now());
+        siteDto.setLastError(null);
+        siteDto.setUrl(site.getUrl());
+        siteDto.setName(site.getName());
+        return siteDto;
     }
 
     public Site mapToModel(SiteDto siteDto) {

@@ -2,8 +2,10 @@ package searchengine.services.repositoryServices;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.dto.indexing.PageDto;
+import searchengine.dto.indexing.SiteDto;
 import searchengine.model.Page;
 import searchengine.model.Site;
 import searchengine.repositories.PageRepository;
@@ -20,7 +22,7 @@ public class PageCRUDService {
     private final SiteRepository siteRepository;
 
     public PageDto getByUrlAndSiteId(String path, Integer site) {
-        Optional <Page> page = pageRepository.findByPathAndSiteId(path, site);
+        Optional<Page> page = pageRepository.findByPathAndSiteId(path, site);
         if (page.isEmpty()) {
             return null;
         } else {
@@ -38,24 +40,20 @@ public class PageCRUDService {
         pageRepository.save(page);
     }
 
-//    public void update(PageDto pageDto) {
-//        if (!pageRepository.existsPageByPath(pageDto.getPath())) {
-//            log.warn("Page ".concat(pageDto.getPath()).concat(" was not found."));
-//        } else {
-//            Site site = siteRepository.findById(pageDto.getSite()).orElseThrow();
-//            site.setStatusTime(Instant.now());
-//            Page page = mapToModel(pageDto);
-//            page.setSite(site);
-//            pageRepository.save(mapToModel(pageDto));
-//            log.info("Update" + pageDto.getPath());
-//        }
-//    }
-//
-//    public void deleteByUrl(String path) {
-//        if (pageRepository.existsPageByPath(path)) {
-//            pageRepository.deletePageByPath(path);
-//        }
-//    }
+    public PageDto createPageDto(String link, Document document, int statusCode, SiteDto siteDto) {
+        PageDto pageDto = new PageDto();
+        pageDto.setSite(siteRepository.findSiteByUrl(siteDto.getUrl()).getId());
+        pageDto.setPath(link.substring(siteDto.getUrl().length() - 1));
+        pageDto.setCode(statusCode);
+        pageDto.setContent(document.html());
+        return pageDto;
+    }
+
+    public void deleteById(Integer id) {
+        if (pageRepository.existsById(id)) {
+            pageRepository.deleteById(id);
+        }
+    }
 
     public static PageDto mapToDto(Page page) {
         PageDto pageDto = new PageDto();
