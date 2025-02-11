@@ -3,13 +3,16 @@ package searchengine.services.repositoryServices;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import searchengine.dto.indexing.IndexDto;
 import searchengine.dto.indexing.LemmaDto;
 import searchengine.model.Lemma;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.SiteRepository;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
 @RequiredArgsConstructor
@@ -76,5 +79,32 @@ public class LemmaCRUDService {
         lemma.setLemma(lemmaDto.getLemma());
 //        lemma.setFrequency(lemma.getFrequency());
         return lemma;
+    }
+    public List<IndexDto> saveLemmasList (Map<String, Integer> lemmas, int pageId, int siteId) {
+        List<IndexDto> indexList = new CopyOnWriteArrayList<>();
+        synchronized (lemmaRepository) {
+            for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
+                Optional<Lemma> lemma = lemmaRepository.findLemmaByLemmaAndSiteId(entry.getKey(), siteId);
+                if (lemma.isEmpty()) {
+                    Lemma lemmaToSave = new Lemma();
+                    lemmaToSave.setSite(siteRepository.findById(siteId).orElseThrow());
+                    lemmaToSave.setLemma(entry.getKey());
+                    lemmaToSave.setFrequency(1);
+                    lemmaRepository.save(lemmaToSave);
+                } else {
+                    Lemma lemmaToUpdate = lemma.get();
+                    Integer frequency = lemmaToUpdate.getFrequency();
+                    lemmaToUpdate.setFrequency(frequency + 1);
+                    lemmaRepository.save(lemmaToUpdate);
+                }
+                Float rank = entry.getValue().floatValue();
+                IndexDto indexDto = new IndexDto();
+                indexDto.setPage(pageId);
+                indexDto.setLemma(lemmaRepository.findLemmaByLemmaAndSiteId(entry.getKey(), siteId).get().getId());
+                indexDto.setRank(rank);
+                indexList.add(indexDto);
+            }
+        }
+        return indexList;
     }
 }

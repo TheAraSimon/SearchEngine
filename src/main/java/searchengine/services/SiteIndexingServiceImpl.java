@@ -3,7 +3,6 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -82,7 +81,9 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             return indexingResponser.createErrorResponse("Данная страница недоступна");
         }
         try {
-            PageDto pageDto = pageCRUDService.getByUrlAndSiteId(url.substring(site.getUrl().length() - 1), siteCRUDService.getByUrl(site.getUrl()).getId());
+            String pageUrl = url.substring(site.getUrl().length() - 1);
+            int siteId = siteCRUDService.getByUrl(site.getUrl()).getId();
+            PageDto pageDto = pageCRUDService.getByUrlAndSiteId(pageUrl, siteId);
             if (pageDto != null) {
                 lemmaCRUDService.deleteLemmasByIds(indexCRUDService.getLemmaIdsByPageId(pageDto.getId()));
                 pageCRUDService.deleteById(pageDto.getId());
@@ -94,22 +95,11 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
 
             LemmaFinder lemmaFinder = LemmaFinder.getInstance();
             Map<String, Integer> lemmas = lemmaFinder.collectLemmas(urlConnector.getDocument().text());
-            Integer pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
-            for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
-                LemmaDto lemmaDto = lemmaCRUDService.getByLemmaAndSiteId(entry.getKey(), siteCRUDService.getByUrl(site.getUrl()).getId());
-                if (lemmaDto == null) {
-                    lemmaDto = lemmaCRUDService.createLemmaDto(entry.getKey(), siteCRUDService.getByUrl(site.getUrl()).getId());
-                    lemmaCRUDService.create(lemmaDto);
-                } else {
-                    lemmaCRUDService.update(lemmaDto);
-                }
-                Float rank = entry.getValue().floatValue();
-                IndexDto indexDto = indexCRUDService.createIndexDto(lemmaDto.getLemma(), pageDto.getSite(), pageId, rank);
-                indexCRUDService.create(indexDto);
-            }
+            int pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
+            List<IndexDto> indexList = lemmaCRUDService.saveLemmasList(lemmas, pageId, siteId);
+            indexCRUDService.addAll(indexList);
             return indexingResponser.createSuccessfulResponse();
         } catch (Exception e) {
-            e.printStackTrace();
             return indexingResponser.createErrorResponse(e.getMessage());
         }
     }
