@@ -26,7 +26,6 @@ public class PageCRUDService {
         if (page.isEmpty()) {
             return null;
         } else {
-            log.info("Get page by path: " + path);
             return mapToDto(page.get());
         }
     }
@@ -55,7 +54,7 @@ public class PageCRUDService {
         }
     }
 
-    public static PageDto mapToDto(Page page) {
+    public PageDto mapToDto(Page page) {
         PageDto pageDto = new PageDto();
         pageDto.setId(page.getId());
         pageDto.setSite(page.getSite().getId());
@@ -65,7 +64,7 @@ public class PageCRUDService {
         return pageDto;
     }
 
-    public static Page mapToModel(PageDto pageDto) {
+    public Page mapToModel(PageDto pageDto) {
         Page page = new Page();
         page.setId(pageDto.getId());
         page.setPath(pageDto.getPath());

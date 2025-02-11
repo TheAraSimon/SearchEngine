@@ -5,15 +5,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.jsoup.UnsupportedMimeTypeException;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
+import searchengine.dto.indexing.IndexDto;
+import searchengine.dto.indexing.LemmaDto;
 import searchengine.dto.indexing.PageDto;
 import searchengine.dto.indexing.SiteDto;
+import searchengine.model.Index;
+import searchengine.services.repositoryServices.IndexCRUDService;
+import searchengine.services.repositoryServices.LemmaCRUDService;
 import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
 
 import java.net.SocketTimeoutException;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -27,6 +34,8 @@ public class SiteMapper extends RecursiveTask<Void> {
     private final ConnectionProfile connectionProfile;
     private final PageCRUDService pageCRUDService;
     private final SiteCRUDService siteCRUDService;
+    private final LemmaCRUDService lemmaCRUDService;
+    private final IndexCRUDService indexCRUDService;
     private static final AtomicBoolean stopRequested = new AtomicBoolean(false);
 
     public static void requestStop() {
@@ -56,18 +65,42 @@ public class SiteMapper extends RecursiveTask<Void> {
         try {
             UrlConnector urlConnector = new UrlConnector(url, connectionProfile);
             int statusCode = urlConnector.getStatusCode();
-            Document document = urlConnector.getDocument();
+            if (statusCode >= 400) {
+                return null;
+            }
 
-            if (isValidLink(url)
-                    && pageCRUDService.getByUrlAndSiteId(url.substring(siteDto.getUrl().length() - 1), siteDto.getId()) == null) {
-                PageDto pageDto = pageCRUDService.createPageDto(url, document, statusCode, siteDto);
-                try {
-                    pageCRUDService.create(pageDto);
-                } catch (Exception e) {
-                    log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+            Document document = urlConnector.getDocument();
+            PageDto pageDto = pageCRUDService.createPageDto(url, document, statusCode, siteDto);
+            try {
+                pageCRUDService.create(pageDto);
+                LemmaFinder lemmaFinder = LemmaFinder.getInstance();
+                Map<String, Integer> lemmas = lemmaFinder.collectLemmas(urlConnector.getDocument().text());
+                int pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
+                int siteId = siteCRUDService.getByUrl(siteDto.getUrl()).getId();
+                List<IndexDto> indexList = new CopyOnWriteArrayList<>();
+                synchronized (lemmaCRUDService) {
+                    for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
+
+                        LemmaDto lemmaDto = lemmaCRUDService.getByLemmaAndSiteId(entry.getKey(), siteId);
+                        if (lemmaDto == null) {
+                            lemmaDto = lemmaCRUDService.createLemmaDto(entry.getKey(), siteId);
+                            lemmaCRUDService.create(lemmaDto);
+                        } else {
+                            lemmaCRUDService.update(lemmaDto);
+                        }
+
+                        Float rank = entry.getValue().floatValue();
+                        IndexDto indexDto = new IndexDto();
+                        indexDto.setPage(pageId);
+                        indexDto.setLemma(lemmaCRUDService.getByLemmaAndSiteId(entry.getKey(), siteId).getId());
+                        indexDto.setRank(rank);
+                        indexList.add(indexDto);
+                    }
                 }
-            } else {
-                log.info("Страница уже существует в базе данных: {}", url);
+                indexCRUDService.addAll(indexList);
+            } catch (Exception e) {
+                e.printStackTrace();
+                log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
             }
 
 
@@ -77,7 +110,8 @@ public class SiteMapper extends RecursiveTask<Void> {
                     .filter(this::isValidLink)
                     .forEach(link -> {
                         if (!stopRequested.get()) {
-                            SiteMapper task = new SiteMapper(link, siteDto, connectionProfile, pageCRUDService, siteCRUDService);
+                            SiteMapper task = new SiteMapper(link, siteDto, connectionProfile,
+                                    pageCRUDService, siteCRUDService, lemmaCRUDService, indexCRUDService);
                             task.fork();
                         }
                     });

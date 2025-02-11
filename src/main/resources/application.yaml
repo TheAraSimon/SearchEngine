@@ -20,10 +20,10 @@ indexing-settings:
   sites:
     - url: https://sendel.ru/
       name: Sendel
-    - url: http://www.playback.ru/
-      name: Playback
-    - url: http://radiomv.ru/
-      name: RadioMV
+#    - url: http://www.playback.ru/
+#      name: Playback
+#    - url: http://radiomv.ru/
+#      name: RadioMV
 #    - url: https://ipfran.ru/
 #      name: IPFran
 #    - url: https://dimonvideo.ru/
@@ -32,10 +32,10 @@ indexing-settings:
       name: NikoGallery
 #    - url: https://www.lutherancathedral.ru/
 #      name: LutheranCathedral
-    - url: https://dombulgakova.ru/
-      name: DomBulgakova
-    - url: https://www.svetlovka.ru/
-      name: Svetlovka
+#    - url: https://dombulgakova.ru/
+#      name: DomBulgakova
+#    - url: https://www.svetlovka.ru/
+#      name: Svetlovka
 
 connection-profile:
   userAgent: FirstSearchBot

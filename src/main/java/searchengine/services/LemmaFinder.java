@@ -30,7 +30,7 @@ public class LemmaFinder {
         String[] words = arrayContainsRussianWords(removeHtmlTags(text));
         HashMap<String, Integer> lemmas = new HashMap<>();
         for (String word : words) {
-            if (word.isBlank() && !isCorrectWordForm(word)) {
+            if (word.isBlank() || !isCorrectWordForm(word)) {
                 continue;
             }
             List<String> wordBaseForms = luceneMorphology.getMorphInfo(word);

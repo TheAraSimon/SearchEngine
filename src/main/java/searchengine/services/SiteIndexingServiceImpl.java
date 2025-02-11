@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -120,7 +121,8 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             siteCRUDService.create(siteDto);
             if (isSiteAccessible(site)) {
                 ForkJoinPool pool = new ForkJoinPool();
-                pool.invoke(new SiteMapper(site.getUrl(), siteDto, connectionProfile, pageCRUDService, siteCRUDService));
+                pool.invoke(new SiteMapper(site.getUrl(), siteDto, connectionProfile,
+                        pageCRUDService, siteCRUDService, lemmaCRUDService, indexCRUDService));
                 pool.shutdown();
                 if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
                     String errorMessage = "Indexing timeout (more than 1 hour) for site: " + site.getUrl();

@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.dto.indexing.IndexDto;
 import searchengine.model.Index;
+import searchengine.model.Lemma;
+import searchengine.model.Page;
 import searchengine.repositories.IndexRepository;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.PageRepository;
@@ -23,11 +25,17 @@ public class IndexCRUDService {
     public IndexDto createIndexDto(String lemma, Integer siteId, Integer pageId, Float rank) {
         try {
             IndexDto indexDto = new IndexDto();
-            indexDto.setLemma(lemmaRepository.findLemmaByLemmaAndSiteId(lemma, siteId).get().getId());
-            indexDto.setPage(pageRepository.findById(pageId).get().getId());
+            Optional <Lemma> lemmaToSet = lemmaRepository.findLemmaByLemmaAndSiteId(lemma, siteId);
+            Optional <Page> pageToSet = pageRepository.findById(pageId);
+            if (lemmaToSet.isEmpty() || pageToSet.isEmpty()) {
+                return null;
+            }
+            indexDto.setLemma(lemmaToSet.get().getId());
+            indexDto.setPage(pageToSet.get().getId());
             indexDto.setRank(rank);
             return indexDto;
         } catch (Exception e) {
+            System.out.println(lemma + " " + siteId);
             e.printStackTrace();
             return null;
         }
@@ -77,7 +85,7 @@ public class IndexCRUDService {
         }
     }
 
-    public static IndexDto mapToDto(Index index) {
+    public IndexDto mapToDto(Index index) {
         IndexDto indexDto = new IndexDto();
         indexDto.setId(index.getId());
         indexDto.setPage(index.getPage().getId());
@@ -86,10 +94,24 @@ public class IndexCRUDService {
         return indexDto;
     }
 
-    public static Index mapToModel(IndexDto indexDto) {
+    public Index mapToModel(IndexDto indexDto) {
         Index index = new Index();
         index.setId(indexDto.getId());
         index.setRank(indexDto.getRank());
         return index;
+    }
+
+    public void addAll(List<IndexDto> indexDtos) {
+        if (indexDtos == null || indexDtos.isEmpty()) {
+            log.warn("Передан пустой список для добавления в индекс.");
+            return;
+        }
+        indexDtos.forEach((indexDto) -> {
+            Index index = mapToModel(indexDto);
+            index.setPage(pageRepository.findById(indexDto.getPage()).orElseThrow());
+            index.setLemma(lemmaRepository.findById(indexDto.getLemma()).orElseThrow());
+            index.setRank(index.getRank());
+            indexRepository.save(index);
+        });
     }
 }
