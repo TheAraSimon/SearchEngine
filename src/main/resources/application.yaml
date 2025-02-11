@@ -32,8 +32,8 @@ indexing-settings:
       name: NikoGallery
 #    - url: https://www.lutherancathedral.ru/
 #      name: LutheranCathedral
-#    - url: https://dombulgakova.ru/
-#      name: DomBulgakova
+    - url: https://dombulgakova.ru/
+      name: DomBulgakova
 #    - url: https://www.svetlovka.ru/
 #      name: Svetlovka
 

@@ -40,8 +40,8 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             return indexingResponser.createErrorResponse("Indexing is already in progress");
         }
 
-        List<Site> siteList = sites.getSites().stream().distinct().toList();
-        if (siteList.isEmpty()) {
+        List<Site> sitesList = sites.getSites().stream().distinct().toList();
+        if (sitesList.isEmpty()) {
             return indexingResponser.createErrorResponse("Site list is empty");
         }
 
@@ -50,10 +50,10 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         SiteMapper.clearVisitedUrls();
 
         executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-        siteList.forEach(site -> executorService.submit(() -> indexSite(site)));
+        sitesList.forEach(site -> executorService.submit(() -> indexSite(site)));
 
         executorService.shutdown();
-        log.info("Indexing started for {} sites", siteList.size());
+        log.info("Indexing started for {} sites", sitesList.size());
         return indexingResponser.createSuccessfulResponse();
     }
 

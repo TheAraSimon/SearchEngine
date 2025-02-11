@@ -23,11 +23,7 @@ public class PageCRUDService {
 
     public PageDto getByUrlAndSiteId(String path, Integer site) {
         Optional<Page> page = pageRepository.findByPathAndSiteId(path, site);
-        if (page.isEmpty()) {
-            return null;
-        } else {
-            return mapToDto(page.get());
-        }
+        return page.map(this::mapToDto).orElse(null);
     }
 
     public void create(PageDto pageDto) {
@@ -52,6 +48,10 @@ public class PageCRUDService {
         if (pageRepository.existsById(id)) {
             pageRepository.deleteById(id);
         }
+    }
+
+    public int getPageCountBySiteId(Integer siteId) {
+        return pageRepository.countBySiteId(siteId);
     }
 
     public PageDto mapToDto(Page page) {

@@ -19,4 +19,8 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
     @Transactional
     @Query("DELETE FROM Lemma l WHERE l.id IN :ids")
     void deleteByIds(@Param("ids") List<Integer> ids);
+
+    @Transactional(readOnly = true)
+    @Query("SELECT COUNT(l) FROM Lemma l WHERE l.site.id = :siteId")
+    int countBySiteId(@Param("siteId") Integer siteId);
 }

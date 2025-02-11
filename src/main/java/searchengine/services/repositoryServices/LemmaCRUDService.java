@@ -58,6 +58,10 @@ public class LemmaCRUDService {
         return lemmaDto;
     }
 
+    public int getLemmaCountBySiteId(Integer siteId) {
+        return lemmaRepository.countBySiteId(siteId);
+    }
+
     public void deleteLemmasByIds(List<Integer> lemmaIds) {
         if (!lemmaIds.isEmpty()) {
             lemmaRepository.deleteByIds(lemmaIds);
