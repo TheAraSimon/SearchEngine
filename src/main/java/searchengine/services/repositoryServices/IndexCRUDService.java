@@ -54,7 +54,6 @@ public class IndexCRUDService {
             log.warn("Index " + index + " was not found.");
             return null;
         } else {
-            log.info("Get index: " + index);
             return mapToDto(index.get());
         }
     }

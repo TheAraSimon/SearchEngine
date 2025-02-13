@@ -16,9 +16,6 @@ import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
 
 import java.util.*;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,12 +26,11 @@ public class SearchingServiceImpl implements SearchingService {
     private final PageCRUDService pageCRUDService;
     private final SiteCRUDService siteCRUDService;
     private final SearchingResponser searchingResponser = new SearchingResponser();
-    private final List<SearchData> data = new CopyOnWriteArrayList<>();
-    ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+    private final List<SearchData> data = new ArrayList<>();
 
     @Override
     public SearchingResponse search(String query, List<String> sitesList) {
-
+        data.clear();
         if (query.isEmpty()) {
             return searchingResponser.createErrorResponse("Задан пустой поисковый запрос");
         }
@@ -51,18 +47,13 @@ public class SearchingServiceImpl implements SearchingService {
             return searchingResponser.createErrorResponse("Задан некорректный поисковый запрос");
         }
 
-        List<String> notCommonLemmas = lemmaCRUDService.removeCommonLemmas(lemmas.stream().toList());
-        try {
-            sitesList.forEach(site -> executorService.submit(() -> {
-                SiteDto siteDto = siteCRUDService.getByUrl(site);
-                List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
-                List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
-                calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
-            }));
-        } catch (Exception e) {
-            log.warn(e.getMessage());
-            return searchingResponser.createErrorResponse("Возникла ошибка во время поиска страниц");
-        }
+        List<String> notCommonLemmas = lemmaCRUDService.removeCommonLemmas(new ArrayList<>(lemmas));
+        sitesList.forEach(site -> {
+            SiteDto siteDto = siteCRUDService.getByUrl(site + "/");
+            List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
+            List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
+            calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
+        });
         data.sort(Comparator.comparing(SearchData::getRelevance).reversed());
         return searchingResponser.createSuccessfulResponse(data.size(), data);
     }
@@ -97,26 +88,15 @@ public class SearchingServiceImpl implements SearchingService {
         for (PageDto page : relevantPages) {
             float relevance = 0f;
             for (LemmaDto lemma : lemmas) {
-                relevance += indexCRUDService.getIndexByLemmaIdAndPageId(page.getId(), lemma.getId()).getRank();
+                relevance += indexCRUDService.getIndexByLemmaIdAndPageId(lemma.getId(), page.getId()).getRank();
             }
             SearchData searchData = new SearchData();
             searchData.setSite(site);
             searchData.setSiteName(siteDto.getName());
             searchData.setUri(page.getPath());
             searchData.setTitle(getTitle(page));
-            searchData.setSnippet("<li>Чарльз Петцольд «Код: тайный язык информатики»</li>\n" +
-                    "<li>Егор Бугаенко «Элегантные Java объекты»</li>\n" +
-                    "<li>Владстон Феррейра Фило «Теоретический минимум по Computer Science»</li>\n" +
-                    "<li>Роберт Мартин «Чистая архитектура»</li>\n" +
-                    "<li>Роберт Лафоре «Структуры данных и алгоритмы в Java»</li>\n" +
-                    "<li>Филипе Гутьеррес «Spring Boot 2: лучшие практики для профессионалов»</li>\n" +
-                    "<li>Алекс Сюй «System Design. Подготовка к сложному интервью»</li>");
-//            searchData.setSite(site.substring(0, site.length() - 1));
-//            searchData.setSiteName(siteDto.getName());
-//            searchData.setUri(page.getPath().substring(0, page.getPath().length() - 1));
-//            searchData.setTitle(getTitle(page));
-//            TODO:
-//            searchData.setSnippet(null);
+            //TODO
+            searchData.setSnippet(null);
             searchData.setRelevance(relevance);
             data.add(searchData);
             maxRelevance = Math.max(maxRelevance, relevance);
