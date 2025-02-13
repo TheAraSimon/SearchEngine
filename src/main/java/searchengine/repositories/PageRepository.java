@@ -9,6 +9,7 @@ import searchengine.model.Page;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface PageRepository extends JpaRepository<Page, Integer> {
@@ -17,4 +18,8 @@ public interface PageRepository extends JpaRepository<Page, Integer> {
     @Transactional(readOnly = true)
     @Query("SELECT COUNT(p) FROM Page p WHERE p.site.id = :siteId")
     int countBySiteId(@Param("siteId") Integer siteId);
+
+    @Transactional(readOnly = true)
+    @Query("SELECT p FROM Page p WHERE p.id IN :ids")
+    List<Page> findPagesByIds(@Param("ids") List<Integer> ids);
 }

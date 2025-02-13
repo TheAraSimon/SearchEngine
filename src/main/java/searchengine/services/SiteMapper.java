@@ -65,7 +65,7 @@ public class SiteMapper extends RecursiveTask<Void> {
                 Map<String, Integer> lemmas = lemmaFinder.collectLemmas(urlConnector.getDocument().text());
                 int pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
                 int siteId = siteCRUDService.getByUrl(siteDto.getUrl()).getId();
-                List<IndexDto> indexList = lemmaCRUDService.saveLemmasList(lemmas, pageId, siteId);
+                List<IndexDto> indexList = lemmaCRUDService.saveLemmasListAndCreateIndexes(lemmas, pageId, siteId);
                 indexCRUDService.addAll(indexList);
             } catch (Exception e) {
                 log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);

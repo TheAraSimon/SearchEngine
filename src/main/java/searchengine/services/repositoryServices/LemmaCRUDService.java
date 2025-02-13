@@ -9,9 +9,7 @@ import searchengine.model.Lemma;
 import searchengine.repositories.LemmaRepository;
 import searchengine.repositories.SiteRepository;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
@@ -20,16 +18,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class LemmaCRUDService {
     private final LemmaRepository lemmaRepository;
     private final SiteRepository siteRepository;
+    private final static Float PERCENT_OF_SITES_WITH_COMMON_LEMMAS = 0.8f;
 
     public LemmaDto getByLemmaAndSiteId(String lemmaToGet, Integer siteId) {
         Optional<Lemma> lemma = lemmaRepository.findLemmaByLemmaAndSiteId(lemmaToGet, siteId);
-        if (lemma.isEmpty()) {
-//            log.warn("Lemma " + lemma + " was not found.");
-            return null;
-        } else {
-//            log.info("Get lemma: " + lemma);
-            return mapToDto(lemma.get());
-        }
+        return lemma.map(LemmaCRUDService::mapToDto).orElse(null);
     }
 
     public void create(LemmaDto lemmaDto) {
@@ -84,7 +77,8 @@ public class LemmaCRUDService {
 //        lemma.setFrequency(lemma.getFrequency());
         return lemma;
     }
-    public List<IndexDto> saveLemmasList (Map<String, Integer> lemmas, int pageId, int siteId) {
+
+    public List<IndexDto> saveLemmasListAndCreateIndexes(Map<String, Integer> lemmas, int pageId, int siteId) {
         List<IndexDto> indexList = new CopyOnWriteArrayList<>();
         synchronized (lemmaRepository) {
             for (Map.Entry<String, Integer> entry : lemmas.entrySet()) {
@@ -111,4 +105,21 @@ public class LemmaCRUDService {
         }
         return indexList;
     }
+
+    public List<String> removeCommonLemmas(List<String> lemmas) {
+        long totalSites = lemmaRepository.getTotalSiteCount();
+        if (totalSites > 1) {
+            long minSiteCount = (int) Math.ceil(totalSites * PERCENT_OF_SITES_WITH_COMMON_LEMMAS);
+            List<String> commonLemmas = lemmaRepository.findCommonLemmas((int) minSiteCount);
+            return lemmas.stream().filter(lemma -> !commonLemmas.contains(lemma)).toList();
+        }
+        return new ArrayList<>(lemmas);
+    }
+
+    public List<LemmaDto> getSortedLemmaDtos(List<String> lemmas, Integer siteId) {
+        List<Lemma> sortedLemmas = lemmaRepository.findLemmasBySiteAndSort(lemmas, siteId);
+        return sortedLemmas.stream().map(LemmaCRUDService::mapToDto).toList();
+    }
+
+
 }

@@ -44,6 +44,9 @@ public class IndexCRUDService {
     public List<Integer> getLemmaIdsByPageId(Integer pageId) {
         return indexRepository.findLemmaIdsByPageId(pageId);
     }
+    public List<Integer> getPageIdsByLemmaId(Integer lemmaId) {
+        return indexRepository.findPageIdsByLemmaId(lemmaId);
+    }
 
     public IndexDto getIndexByLemmaIdAndPageId(Integer lemmaId, Integer pageId) {
         Optional<Index> index = indexRepository.findIndexByLemmaIdAndPageId(lemmaId, pageId);
@@ -99,6 +102,10 @@ public class IndexCRUDService {
         index.setId(indexDto.getId());
         index.setRank(indexDto.getRank());
         return index;
+    }
+
+    public boolean isTableEmpty() {
+        return indexRepository.count() == 0;
     }
 
     public void addAll(List<IndexDto> indexDtos) {

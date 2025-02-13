@@ -96,7 +96,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             LemmaFinder lemmaFinder = LemmaFinder.getInstance();
             Map<String, Integer> lemmas = lemmaFinder.collectLemmas(urlConnector.getDocument().text());
             int pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
-            List<IndexDto> indexList = lemmaCRUDService.saveLemmasList(lemmas, pageId, siteId);
+            List<IndexDto> indexList = lemmaCRUDService.saveLemmasListAndCreateIndexes(lemmas, pageId, siteId);
             indexCRUDService.addAll(indexList);
             return indexingResponser.createSuccessfulResponse();
         } catch (Exception e) {

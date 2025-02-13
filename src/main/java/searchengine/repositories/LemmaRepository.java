@@ -10,6 +10,7 @@ import searchengine.model.Lemma;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
@@ -23,4 +24,18 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
     @Transactional(readOnly = true)
     @Query("SELECT COUNT(l) FROM Lemma l WHERE l.site.id = :siteId")
     int countBySiteId(@Param("siteId") Integer siteId);
+
+    @Transactional(readOnly = true)
+    @Query("SELECT COUNT(DISTINCT l.site.id) FROM Lemma l")
+    long getTotalSiteCount();
+
+    @Transactional(readOnly = true)
+    @Query("SELECT l.lemma FROM Lemma l GROUP BY l.lemma HAVING COUNT(DISTINCT l.site.id) >= :minSiteCount")
+    List<String> findCommonLemmas(@Param("minSiteCount") long minSiteCount);
+
+    @Transactional(readOnly = true)
+    @Query("SELECT l FROM Lemma l WHERE l.lemma IN :lemmas AND l.site.id = :siteId ORDER BY l.frequency ASC")
+    List<Lemma> findLemmasBySiteAndSort(@Param("lemmas") List<String> lemmas, @Param("siteId") Integer siteId);
+
+
 }

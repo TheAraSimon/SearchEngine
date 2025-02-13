@@ -58,20 +58,22 @@ public class LemmaFinder {
         return htmlContent.replaceAll("<[^>]*>", "");
     }
 
-    //    public Set<String> getLemmaSet(String text) {
-//        String[] textArray = arrayContainsRussianWords(text);
-//        Set<String> lemmaSet = new HashSet<>();
-//        for (String word : textArray) {
-//            if (!word.isEmpty() && isCorrectWordForm(word)) {
-//                List<String> wordBaseForms = luceneMorphology.getMorphInfo(word);
-//                if (anyWordBaseBelongToParticle(wordBaseForms)) {
-//                    continue;
-//                }
-//                lemmaSet.addAll(luceneMorphology.getNormalForms(word));
-//            }
-//        }
-//        return lemmaSet;
-//    }
+    public Set<String> getLemmaSet(String text) {
+        String[] textArray = arrayContainsRussianWords(removeHtmlTags(text));
+        Set<String> lemmaSet = new HashSet<>();
+        for (String word : textArray) {
+            if (word.isBlank()  && !isCorrectWordForm(word)) {
+                continue;
+            }
+            List<String> wordBaseForms = luceneMorphology.getMorphInfo(word);
+            if (anyWordBaseBelongToParticle(wordBaseForms)) {
+                continue;
+            }
+            lemmaSet.addAll(luceneMorphology.getNormalForms(word));
+        }
+        return lemmaSet;
+    }
+
     private boolean anyWordBaseBelongToParticle(List<String> wordBaseForms) {
         return wordBaseForms.stream().anyMatch(this::hasParticleProperty);
     }

@@ -12,7 +12,11 @@ import searchengine.repositories.PageRepository;
 import searchengine.repositories.SiteRepository;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +52,10 @@ public class PageCRUDService {
         if (pageRepository.existsById(id)) {
             pageRepository.deleteById(id);
         }
+    }
+
+    public List<PageDto> findPagesByIds(List<Integer> ids) {
+        return pageRepository.findPagesByIds(ids).stream().map(this::mapToDto).toList();
     }
 
     public int getPageCountBySiteId(Integer siteId) {
