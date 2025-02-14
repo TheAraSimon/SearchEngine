@@ -56,6 +56,6 @@ public class ApiController {
             @RequestParam(required = false, defaultValue = "0") int offset,
             @RequestParam(required = false, defaultValue = "20") int limit) {
         List<String> sitesList = (site == null) ? searchingService.getSiteUrlList() : new ArrayList<>(List.of(site));
-        return ResponseEntity.ok(searchingService.search(query, sitesList));
+        return ResponseEntity.ok(searchingService.search(query, sitesList, offset, limit));
     }
 }

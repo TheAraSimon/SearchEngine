@@ -104,7 +104,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         }
     }
 
-    public void indexSite(Site site) {
+    private void indexSite(Site site) {
         try {
             siteCRUDService.deleteByUrl(site.getUrl());
             SiteDto siteDto = siteCRUDService.createSiteDto(site);
@@ -130,7 +130,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         }
     }
 
-    public void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
+    private void updateSiteStatus(String siteUrl, Status status, String errorMessage) {
         SiteDto siteDto = siteCRUDService.getByUrl(siteUrl);
         if (siteDto != null) {
             siteDto.setStatus(status);
@@ -140,7 +140,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         }
     }
 
-    public boolean isSiteAccessible(Site site) {
+    private boolean isSiteAccessible(Site site) {
         try {
             UrlConnector urlConnector = new UrlConnector(site.getUrl(), connectionProfile);
             int statusCode = urlConnector.getStatusCode();

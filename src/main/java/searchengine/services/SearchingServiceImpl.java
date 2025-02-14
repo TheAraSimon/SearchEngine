@@ -32,7 +32,7 @@ public class SearchingServiceImpl implements SearchingService {
     private final List<SearchResult> data = new ArrayList<>();
 
     @Override
-    public SearchingResponse search(String query, List<String> sitesList) {
+    public SearchingResponse search(String query, List<String> sitesList, int offset, int limit) {
         data.clear();
         if (query.isEmpty()) {
             return searchingResponser.createErrorResponse("Задан пустой поисковый запрос");
@@ -58,7 +58,12 @@ public class SearchingServiceImpl implements SearchingService {
             calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
         });
         data.sort(Comparator.comparing(SearchResult::getRelevance).reversed());
-        return searchingResponser.createSuccessfulResponse(data.size(), data);
+
+        int start = Math.min(offset, data.size());
+        int end = Math.min(start + limit, data.size());
+        List<SearchResult> paginatedResults = data.subList(start, end);
+
+        return searchingResponser.createSuccessfulResponse(data.size(), paginatedResults);
     }
 
     public List<PageDto> findRelevantPages(List<LemmaDto> sortedLemmaDtos, SiteDto siteDto) {
