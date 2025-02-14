@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import searchengine.dto.indexing.SiteDto;
 import searchengine.dto.searching.SearchingResponse;
 
 import java.util.List;

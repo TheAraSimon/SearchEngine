@@ -1,9 +1,7 @@
 package searchengine.services;
 
-import searchengine.dto.indexing.IndexingResponse;
-import searchengine.dto.searching.SearchData;
+import searchengine.dto.searching.SearchResult;
 import searchengine.dto.searching.SearchingResponse;
-import searchengine.dto.statistics.DetailedStatisticsItem;
 
 import java.util.List;
 
@@ -18,7 +16,7 @@ public class SearchingResponser {
         return response;
     }
 
-    public SearchingResponse createSuccessfulResponse(int count, List<SearchData> data) {
+    public SearchingResponse createSuccessfulResponse(int count, List<SearchResult> data) {
         SearchingResponse response = new SearchingResponse();
         response.setCount(count);
         response.setData(data);

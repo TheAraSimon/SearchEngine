@@ -10,6 +10,6 @@ import java.util.List;
 public class SearchingResponse {
     private boolean result;
     private int count;
-    private List<SearchData> data;
+    private List<SearchResult> data;
     private String error;
 }

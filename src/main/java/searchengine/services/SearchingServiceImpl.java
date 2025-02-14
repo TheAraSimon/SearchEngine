@@ -5,10 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
+import searchengine.config.Site;
+import searchengine.config.SitesList;
 import searchengine.dto.indexing.LemmaDto;
 import searchengine.dto.indexing.PageDto;
 import searchengine.dto.indexing.SiteDto;
-import searchengine.dto.searching.SearchData;
+import searchengine.dto.searching.SearchResult;
 import searchengine.dto.searching.SearchingResponse;
 import searchengine.services.repositoryServices.IndexCRUDService;
 import searchengine.services.repositoryServices.LemmaCRUDService;
@@ -25,8 +27,9 @@ public class SearchingServiceImpl implements SearchingService {
     private final IndexCRUDService indexCRUDService;
     private final PageCRUDService pageCRUDService;
     private final SiteCRUDService siteCRUDService;
+    private final SitesList sites;
     private final SearchingResponser searchingResponser = new SearchingResponser();
-    private final List<SearchData> data = new ArrayList<>();
+    private final List<SearchResult> data = new ArrayList<>();
 
     @Override
     public SearchingResponse search(String query, List<String> sitesList) {
@@ -49,12 +52,12 @@ public class SearchingServiceImpl implements SearchingService {
 
         List<String> notCommonLemmas = lemmaCRUDService.removeCommonLemmas(new ArrayList<>(lemmas));
         sitesList.forEach(site -> {
-            SiteDto siteDto = siteCRUDService.getByUrl(site + "/");
+            SiteDto siteDto = siteCRUDService.getByUrl(site);
             List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
             List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
             calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
         });
-        data.sort(Comparator.comparing(SearchData::getRelevance).reversed());
+        data.sort(Comparator.comparing(SearchResult::getRelevance).reversed());
         return searchingResponser.createSuccessfulResponse(data.size(), data);
     }
 
@@ -90,20 +93,20 @@ public class SearchingServiceImpl implements SearchingService {
             for (LemmaDto lemma : lemmas) {
                 relevance += indexCRUDService.getIndexByLemmaIdAndPageId(lemma.getId(), page.getId()).getRank();
             }
-            SearchData searchData = new SearchData();
-            searchData.setSite(site);
-            searchData.setSiteName(siteDto.getName());
-            searchData.setUri(page.getPath());
-            searchData.setTitle(getTitle(page));
-            //TODO
-            searchData.setSnippet(null);
-            searchData.setRelevance(relevance);
-            data.add(searchData);
+            SearchResult searchResult = new SearchResult();
+            searchResult.setSite(site.substring(0, site.length() - 1));
+            searchResult.setSiteName(siteDto.getName());
+            searchResult.setUri(page.getPath());
+            searchResult.setTitle(getTitle(page));
+            SnippetGenerator snippetGenerator = new SnippetGenerator(page, lemmas);
+            searchResult.setSnippet(snippetGenerator.generateSnippet());
+            searchResult.setRelevance(relevance);
+            data.add(searchResult);
             maxRelevance = Math.max(maxRelevance, relevance);
         }
 
-        for (SearchData searchData : data) {
-            searchData.setRelevance(searchData.getRelevance() / maxRelevance);
+        for (SearchResult searchResult : data) {
+            searchResult.setRelevance(searchResult.getRelevance() / maxRelevance);
         }
     }
 
@@ -115,6 +118,6 @@ public class SearchingServiceImpl implements SearchingService {
 
     @Override
     public List<String> getSiteUrlList() {
-        return new ArrayList<String>();
+        return sites.getSites().stream().map(Site::getUrl).toList();
     }
 }

@@ -1,11 +1,14 @@
 package searchengine.services;
 
+import com.github.demidko.aot.WordformMeaning;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
 import java.io.IOException;
 import java.util.*;
+
+import static com.github.demidko.aot.WordformMeaning.lookupForMeanings;
 
 @Slf4j
 public class LemmaFinder {
@@ -16,10 +19,6 @@ public class LemmaFinder {
     public static LemmaFinder getInstance() throws IOException {
         LuceneMorphology morphology = new RussianLuceneMorphology();
         return new LemmaFinder(morphology);
-    }
-
-    private LemmaFinder() {
-        throw new RuntimeException("Disallow construct");
     }
 
     private LemmaFinder(LuceneMorphology luceneMorphology) {
@@ -62,7 +61,7 @@ public class LemmaFinder {
         String[] textArray = arrayContainsRussianWords(removeHtmlTags(text));
         Set<String> lemmaSet = new HashSet<>();
         for (String word : textArray) {
-            if (word.isBlank()  && !isCorrectWordForm(word)) {
+            if (word.isBlank() && !isCorrectWordForm(word)) {
                 continue;
             }
             List<String> wordBaseForms = luceneMorphology.getMorphInfo(word);
@@ -103,4 +102,14 @@ public class LemmaFinder {
         }
         return true;
     }
+
+    public Set<String> getWordForms(String lemma) {
+        List<WordformMeaning> meanings = lookupForMeanings(lemma);
+        HashSet<String> wordForms = new HashSet<>();
+        for (WordformMeaning t : meanings.get(0).getTransformations()) {
+            wordForms.add(t.toString());
+        }
+        return wordForms;
+    }
+
 }

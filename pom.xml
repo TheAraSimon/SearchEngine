@@ -78,9 +78,18 @@
             <artifactId>russian</artifactId>
             <version>1.5</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.demidko</groupId>
+            <artifactId>aot</artifactId>
+            <version>2025.02.15</version>
+        </dependency>
     </dependencies>
 
     <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
         <repository>
             <id>skillbox-gitlab</id>
             <url>https://gitlab.skillbox.ru/api/v4/projects/263574/packages/maven</url>
