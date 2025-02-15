@@ -18,6 +18,7 @@ import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
 
 import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +30,21 @@ public class SearchingServiceImpl implements SearchingService {
     private final SiteCRUDService siteCRUDService;
     private final SitesList sites;
     private final SearchingResponser searchingResponser = new SearchingResponser();
-    private final List<SearchResult> data = new ArrayList<>();
+    private final List<SearchResult> data = new CopyOnWriteArrayList<>();
+
+    @Override
+    public List<String> getSiteUrlList() {
+        return sites.getSites().stream().map(Site::getUrl).toList();
+    }
 
     @Override
     public SearchingResponse search(String query, List<String> sitesList, int offset, int limit) {
-        data.clear();
+        if (!data.isEmpty() && offset != 0 && data.size() > limit) {
+            int start = Math.min(offset, data.size());
+            int end = Math.min(start + limit, data.size());
+            List<SearchResult> paginatedResults = data.subList(start, end);
+            return searchingResponser.createSuccessfulResponse(data.size(), paginatedResults);
+        }
         if (query.isEmpty()) {
             return searchingResponser.createErrorResponse("Задан пустой поисковый запрос");
         }
@@ -41,6 +52,7 @@ public class SearchingServiceImpl implements SearchingService {
             return searchingResponser.createErrorResponse("Ни одна страница не была проиндексирована");
         }
 
+        data.clear();
         Set<String> lemmas;
         try {
             LemmaFinder lemmaFinder = LemmaFinder.getInstance();
@@ -51,12 +63,29 @@ public class SearchingServiceImpl implements SearchingService {
         }
 
         List<String> notCommonLemmas = lemmaCRUDService.removeCommonLemmas(new ArrayList<>(lemmas));
-        sitesList.forEach(site -> {
-            SiteDto siteDto = siteCRUDService.getByUrl(site);
-            List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
-            List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
-            calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
-        });
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (String site : sitesList) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                try {
+                    SiteDto siteDto = siteCRUDService.getByUrl(site);
+                    if (siteDto == null) {
+                        log.warn("SiteDto is null for site: " + site);
+                        return;
+                    }
+
+                    List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
+                    List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
+                    calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
+                } catch (Exception e) {
+                    log.error("Error processing site: " + site, e);
+                }
+            }, executor);
+            futures.add(future);
+        }
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        executor.shutdown();
         data.sort(Comparator.comparing(SearchResult::getRelevance).reversed());
 
         int start = Math.min(offset, data.size());
@@ -66,7 +95,7 @@ public class SearchingServiceImpl implements SearchingService {
         return searchingResponser.createSuccessfulResponse(data.size(), paginatedResults);
     }
 
-    public List<PageDto> findRelevantPages(List<LemmaDto> sortedLemmaDtos, SiteDto siteDto) {
+    private List<PageDto> findRelevantPages(List<LemmaDto> sortedLemmaDtos, SiteDto siteDto) {
         if (sortedLemmaDtos.isEmpty()) {
             return Collections.emptyList();
         }
@@ -119,10 +148,5 @@ public class SearchingServiceImpl implements SearchingService {
         String content = pageDto.getContent();
         Document document = Jsoup.parse(content);
         return document.title();
-    }
-
-    @Override
-    public List<String> getSiteUrlList() {
-        return sites.getSites().stream().map(Site::getUrl).toList();
     }
 }

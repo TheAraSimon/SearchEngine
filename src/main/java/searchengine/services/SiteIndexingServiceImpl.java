@@ -72,6 +72,9 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
 
     @Override
     public IndexingResponse indexPage(String url) {
+        if (isIndexing.get()) {
+            return indexingResponser.createErrorResponse("Indexing is already in progress");
+        }
         if (!isValidUrl(url)) {
             log.warn("Данная страница ({}) находится за пределами сайтов, указанных в конфигурационном файле", url);
             return indexingResponser.createErrorResponse("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
