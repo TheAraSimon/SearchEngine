@@ -23,6 +23,7 @@ public class IndexCRUDService {
     public List<Integer> getLemmaIdsByPageId(Integer pageId) {
         return indexRepository.findLemmaIdsByPageId(pageId);
     }
+
     public List<Integer> getPageIdsByLemmaId(Integer lemmaId) {
         return indexRepository.findPageIdsByLemmaId(lemmaId);
     }
@@ -59,7 +60,7 @@ public class IndexCRUDService {
 
     public void addAll(List<IndexDto> indexDtos) {
         if (indexDtos == null || indexDtos.isEmpty()) {
-            log.warn("Передан пустой список для добавления в индекс.");
+            log.info("An empty list was provided for indexing.");
             return;
         }
         indexDtos.forEach((indexDto) -> {

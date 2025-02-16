@@ -31,7 +31,7 @@ public class SiteCRUDService {
     public void create(SiteDto siteDto) {
         Site site = mapToModel(siteDto);
         siteRepository.save(site);
-        log.info("Create");
+        log.info("Create" + siteDto.getUrl());
     }
 
     public void update(SiteDto siteDto) {

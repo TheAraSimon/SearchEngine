@@ -70,18 +70,18 @@ public class SiteMapper extends RecursiveTask<Void> {
                 List<IndexDto> indexList = lemmaCRUDService.saveLemmasListAndCreateIndexes(lemmas, pageId, siteId);
                 indexCRUDService.addAll(indexList);
             } catch (Exception e) {
-                log.warn("Ошибка (" + e.getMessage() + ") при обработке сайта {}", url);
+                log.warn("Error (" + e.getMessage() + ") while processing site {}", url);
             }
             parsePage(document);
             Thread.sleep(500 + (int) (Math.random() * 4500));
         } catch (UnsupportedMimeTypeException | SocketTimeoutException ignored) {
         } catch (Exception e) {
-            log.error("Ошибка при обработке URL: {}", url, e);
+            log.error("Error processing URL: {}", url, e);
         }
         return null;
     }
 
-    private void parsePage (Document document) {
+    private void parsePage(Document document) {
         Elements links = document.select("a[href]");
         links.stream()
                 .map(link -> link.attr("abs:href"))

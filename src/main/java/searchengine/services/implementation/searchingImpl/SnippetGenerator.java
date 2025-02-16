@@ -30,7 +30,7 @@ public class SnippetGenerator {
             String snippet = "\"...\"" + text.substring(start, end) + "\"...\"";
             return highlightKeywords(snippet, wordForms);
         } catch (Exception e) {
-            log.warn("Сниппет не сформировался: " + e.getMessage());
+            log.warn("Snippet was not generated: " + e.getMessage());
             return null;
         }
     }

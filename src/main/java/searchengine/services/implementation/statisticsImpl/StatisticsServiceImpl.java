@@ -68,14 +68,14 @@ public class StatisticsServiceImpl implements StatisticsService {
                 detailed.add(item);
             }));
         } catch (Exception e) {
-            log.error("Ошибка при обработке статистики сайтов", e);
+            log.error("Error processing site statistics", e);
         } finally {
             executorService.shutdown();
             try {
                 if (!executorService.awaitTermination(60, TimeUnit.MINUTES)) {
                     executorService.shutdownNow();
                     if (!executorService.awaitTermination(60, TimeUnit.MINUTES)) {
-                        log.error("Пул потоков не завершил свою работу в течение времени ожидания");
+                        log.error("The thread pool did not complete its work within the timeout period");
                     }
                 }
             } catch (InterruptedException e) {

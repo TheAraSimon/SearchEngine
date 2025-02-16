@@ -40,12 +40,12 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     @Override
     public IndexingResponse startIndexing() {
         if (isIndexing.get()) {
-            return indexingResponser.createErrorResponse("Indexing is already in progress");
+            return indexingResponser.createErrorResponse("Индексация уже в процессе");
         }
 
         List<Site> sitesList = sites.getSites().stream().distinct().toList();
         if (sitesList.isEmpty()) {
-            return indexingResponser.createErrorResponse("Site list is empty");
+            return indexingResponser.createErrorResponse("Список сайтов из конфигурационного файла пуст");
         }
 
         isIndexing.set(true);
@@ -63,23 +63,24 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     @Override
     public IndexingResponse stopIndexing() {
         if (!isIndexing.get()) {
-            log.warn("Индексация не запущена");
+            log.warn("Indexing has not been started yet");
             return indexingResponser.createErrorResponse("Индексация не запущена");
         }
         SiteMapper.requestStop();
+        executorService.shutdown();
         executorService.shutdownNow();
         isIndexing.set(false);
-        log.info("Индексация остановлена пользователем");
+        log.info("Indexing was stopped by user");
         return indexingResponser.createSuccessfulResponse();
     }
 
     @Override
     public IndexingResponse indexPage(String url) {
         if (isIndexing.get()) {
-            return indexingResponser.createErrorResponse("Indexing is already in progress");
+            return indexingResponser.createErrorResponse("Индексация уже в процессе");
         }
         if (!isValidUrl(url)) {
-            log.warn("Данная страница ({}) находится за пределами сайтов, указанных в конфигурационном файле", url);
+            log.warn("This page ({}) is outside the sites specified in the configuration file", url);
             return indexingResponser.createErrorResponse("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
         }
         Site site = getSiteFromUrl(url);
@@ -93,7 +94,7 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             if (pageDto != null) {
                 lemmaCRUDService.deleteLemmasByIds(indexCRUDService.getLemmaIdsByPageId(pageDto.getId()));
                 pageCRUDService.deleteById(pageDto.getId());
-                log.warn("Страница {} уже есть в базе данных", url);
+                log.warn("The page {} already exists in the database", url);
             }
             UrlConnector urlConnector = new UrlConnector(url, connectionProfile);
             pageDto = pageCRUDService.createPageDto(url, urlConnector.getDocument(), urlConnector.getStatusCode(), siteCRUDService.getByUrl(site.getUrl()));
@@ -121,18 +122,19 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
                         pageCRUDService, siteCRUDService, lemmaCRUDService, indexCRUDService));
                 pool.shutdown();
                 if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
-                    String errorMessage = "Indexing timeout (more than 1 hour) for site: " + site.getUrl();
+                    String errorMessage = "Тайм-аут индексации (более 1 часа) для сайта: " + site.getUrl();
+                    log.warn("Indexing timeout (more than 1 hour) for site: " + site.getUrl());
                     updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
                 } else if (pool.awaitQuiescence(60, TimeUnit.MINUTES)) {
                     updateSiteStatus(site.getUrl(), Status.INDEXED, null);
                 }
             }
         } catch (InterruptedException e) {
-            log.warn("Индексация остановлена для сайта: {}", site.getUrl());
+            log.warn("Indexing was stopped for the site: {}", site.getUrl());
             updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация остановлена пользователем");
         } catch (Exception e) {
             log.error("Error indexing site {}: {}", site.getUrl(), e.getMessage());
-            updateSiteStatus(site.getUrl(), Status.FAILED, "Error indexing site: " + e.getMessage());
+            updateSiteStatus(site.getUrl(), Status.FAILED, "Ошибка во время индексации сайта: " + e.getMessage());
         }
     }
 
@@ -151,16 +153,14 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             UrlConnector urlConnector = new UrlConnector(site.getUrl(), connectionProfile);
             int statusCode = urlConnector.getStatusCode();
             if (!(statusCode >= 200 && statusCode < 300)) {
-                String errorMessage = "Site is not available. Error code: " + statusCode;
-                updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
-                log.warn(errorMessage);
+                updateSiteStatus(site.getUrl(), Status.FAILED, "Сайт недоступен. Код ошибки: " + statusCode);
+                log.warn("Site is not available. Error code: " + statusCode);
                 return false;
             }
             return true;
         } catch (Exception e) {
-            String errorMessage = "Error indexing site " + site.getUrl() + ": " + e.getMessage();
-            updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
-            log.warn(errorMessage);
+            updateSiteStatus(site.getUrl(), Status.FAILED, "Ошибка индексации сайта " + site.getUrl() + ": " + e.getMessage());
+            log.warn("Error indexing site " + site.getUrl() + ": " + e.getMessage());
             return false;
         }
     }
