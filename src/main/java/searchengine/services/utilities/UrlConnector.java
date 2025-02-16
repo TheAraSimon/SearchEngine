@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.utilities;
 
 import lombok.Getter;
 import org.jsoup.Connection;

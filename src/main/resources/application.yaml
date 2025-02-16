@@ -11,10 +11,6 @@ spring:
        dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
       ddl-auto: update
-#    show-sql: true
-#logging:
-#  level:
-#    root: DEBUG
 
 indexing-settings:
   sites:

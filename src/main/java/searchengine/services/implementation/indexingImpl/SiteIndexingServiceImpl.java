@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.implementation.indexingImpl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,10 +8,13 @@ import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.*;
 import searchengine.model.Status;
+import searchengine.services.utilities.LemmaFinder;
+import searchengine.services.api.SiteIndexingService;
 import searchengine.services.repositoryServices.IndexCRUDService;
 import searchengine.services.repositoryServices.LemmaCRUDService;
 import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
+import searchengine.services.utilities.UrlConnector;
 
 import java.time.Instant;
 import java.util.List;

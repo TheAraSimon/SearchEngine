@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.implementation.indexingImpl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,10 +9,12 @@ import searchengine.config.ConnectionProfile;
 import searchengine.dto.indexing.IndexDto;
 import searchengine.dto.indexing.PageDto;
 import searchengine.dto.indexing.SiteDto;
+import searchengine.services.utilities.LemmaFinder;
 import searchengine.services.repositoryServices.IndexCRUDService;
 import searchengine.services.repositoryServices.LemmaCRUDService;
 import searchengine.services.repositoryServices.PageCRUDService;
 import searchengine.services.repositoryServices.SiteCRUDService;
+import searchengine.services.utilities.UrlConnector;
 
 import java.net.SocketTimeoutException;
 import java.util.*;

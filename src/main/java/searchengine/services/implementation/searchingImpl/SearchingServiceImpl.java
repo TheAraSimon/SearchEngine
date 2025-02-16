@@ -1,9 +1,8 @@
-package searchengine.services;
+package searchengine.services.implementation.searchingImpl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
@@ -12,6 +11,8 @@ import searchengine.dto.indexing.PageDto;
 import searchengine.dto.indexing.SiteDto;
 import searchengine.dto.searching.SearchResult;
 import searchengine.dto.searching.SearchingResponse;
+import searchengine.services.utilities.LemmaFinder;
+import searchengine.services.api.SearchingService;
 import searchengine.services.repositoryServices.IndexCRUDService;
 import searchengine.services.repositoryServices.LemmaCRUDService;
 import searchengine.services.repositoryServices.PageCRUDService;
@@ -40,10 +41,7 @@ public class SearchingServiceImpl implements SearchingService {
     @Override
     public SearchingResponse search(String query, List<String> sitesList, int offset, int limit) {
         if (!data.isEmpty() && offset != 0 && data.size() > limit) {
-            int start = Math.min(offset, data.size());
-            int end = Math.min(start + limit, data.size());
-            List<SearchResult> paginatedResults = data.subList(start, end);
-            return searchingResponser.createSuccessfulResponse(data.size(), paginatedResults);
+            return getPaginatedResponse(offset, limit);
         }
         if (query.isEmpty()) {
             return searchingResponser.createErrorResponse("Задан пустой поисковый запрос");
@@ -53,45 +51,59 @@ public class SearchingServiceImpl implements SearchingService {
         }
 
         data.clear();
-        Set<String> lemmas;
-        try {
-            LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-            lemmas = lemmaFinder.getLemmaSet(query);
-        } catch (Exception e) {
-            log.warn(e.getMessage());
+        List<String> notCommonLemmas = extractNotCommonLemmas(query);
+        if (notCommonLemmas.isEmpty()) {
             return searchingResponser.createErrorResponse("Задан некорректный поисковый запрос");
         }
 
-        List<String> notCommonLemmas = lemmaCRUDService.removeCommonLemmas(new ArrayList<>(lemmas));
+        processSitesParallel(sitesList, notCommonLemmas);
+
+        data.sort(Comparator.comparing(SearchResult::getRelevance).reversed());
+        return getPaginatedResponse(offset, limit);
+    }
+
+    private void processSitesParallel(List<String> sitesList, List<String> notCommonLemmas) {
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
         List<CompletableFuture<Void>> futures = new ArrayList<>();
-
         for (String site : sitesList) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                try {
-                    SiteDto siteDto = siteCRUDService.getByUrl(site);
-                    if (siteDto == null) {
-                        log.warn("SiteDto is null for site: " + site);
-                        return;
-                    }
-
-                    List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
-                    List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
-                    calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
-                } catch (Exception e) {
-                    log.error("Error processing site: " + site, e);
-                }
-            }, executor);
-            futures.add(future);
+            futures.add(processSiteAsync(site, notCommonLemmas, executor));
         }
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        executor.shutdown();
-        data.sort(Comparator.comparing(SearchResult::getRelevance).reversed());
 
+    }
+
+    private CompletableFuture<Void> processSiteAsync(String site, List<String> notCommonLemmas, ExecutorService executor) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                SiteDto siteDto = siteCRUDService.getByUrl(site);
+                if (siteDto == null) {
+                    log.warn("SiteDto is null for site: {}", site);
+                    return;
+                }
+                List<LemmaDto> sortedLemmaDtos = lemmaCRUDService.getSortedLemmaDtos(notCommonLemmas, siteDto.getId());
+                List<PageDto> relevantPages = findRelevantPages(sortedLemmaDtos, siteDto);
+                calculateRelevance(relevantPages, sortedLemmaDtos, siteDto);
+            } catch (Exception e) {
+                log.error("Error processing site: {}", site, e);
+            }
+        }, executor);
+    }
+
+    private List<String> extractNotCommonLemmas(String query) {
+        try {
+            LemmaFinder lemmaFinder = LemmaFinder.getInstance();
+            Set<String> lemmas = lemmaFinder.getLemmaSet(query);
+            return lemmaCRUDService.removeCommonLemmas(new ArrayList<>(lemmas));
+        } catch (Exception e) {
+            log.warn("Error extracting lemmas: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private SearchingResponse getPaginatedResponse(int offset, int limit) {
         int start = Math.min(offset, data.size());
         int end = Math.min(start + limit, data.size());
         List<SearchResult> paginatedResults = data.subList(start, end);
-
         return searchingResponser.createSuccessfulResponse(data.size(), paginatedResults);
     }
 
@@ -99,23 +111,25 @@ public class SearchingServiceImpl implements SearchingService {
         if (sortedLemmaDtos.isEmpty()) {
             return Collections.emptyList();
         }
-        List<LemmaDto> lemmasRelatedToSite = sortedLemmaDtos.stream()
+        List<LemmaDto> siteLemmas = sortedLemmaDtos.stream()
                 .filter(lemmaDto -> siteDto.getId().equals(lemmaDto.getSite()))
                 .toList();
-        if (lemmasRelatedToSite.isEmpty()) {
+        if (siteLemmas.isEmpty()) {
             return Collections.emptyList();
         }
-        List<Integer> relevantPageIds = new ArrayList<>(indexCRUDService.getPageIdsByLemmaId(lemmasRelatedToSite.get(0).getId()));
+        return findPagesByCommonLemmas(siteLemmas);
+    }
 
-        for (int i = 1; i < lemmasRelatedToSite.size(); i++) {
-            int lemmaId = lemmasRelatedToSite.get(i).getId();
-            Set<Integer> pageIdsWithLemma = new HashSet<>(indexCRUDService.getPageIdsByLemmaId(lemmaId));
-            relevantPageIds.retainAll(pageIdsWithLemma);
+    private List<PageDto> findPagesByCommonLemmas(List<LemmaDto> lemmas) {
+        List<Integer> relevantPageIds = new ArrayList<>(indexCRUDService.getPageIdsByLemmaId(lemmas.get(0).getId()));
+
+        for (int i = 1; i < lemmas.size(); i++) {
+            Set<Integer> pageIds = new HashSet<>(indexCRUDService.getPageIdsByLemmaId(lemmas.get(i).getId()));
+            relevantPageIds.retainAll(pageIds);
             if (relevantPageIds.isEmpty()) {
                 return Collections.emptyList();
             }
         }
-
         return pageCRUDService.findPagesByIds(relevantPageIds);
     }
 
@@ -139,14 +153,13 @@ public class SearchingServiceImpl implements SearchingService {
             maxRelevance = Math.max(maxRelevance, relevance);
         }
 
-        for (SearchResult searchResult : data) {
-            searchResult.setRelevance(searchResult.getRelevance() / maxRelevance);
+        if (maxRelevance > 0) {
+            float finalMaxRelevance = maxRelevance;
+            data.forEach(searchResult -> searchResult.setRelevance(searchResult.getRelevance() / finalMaxRelevance));
         }
     }
 
     private String getTitle(PageDto pageDto) {
-        String content = pageDto.getContent();
-        Document document = Jsoup.parse(content);
-        return document.title();
+        return Jsoup.parse(pageDto.getContent()).title();
     }
 }

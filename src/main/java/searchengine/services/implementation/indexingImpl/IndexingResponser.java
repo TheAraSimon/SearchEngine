@@ -1,4 +1,4 @@
-package searchengine.services;
+package searchengine.services.implementation.indexingImpl;
 
 import searchengine.dto.indexing.IndexingResponse;
 

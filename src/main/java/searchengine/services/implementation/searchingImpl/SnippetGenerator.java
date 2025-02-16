@@ -1,9 +1,10 @@
-package searchengine.services;
+package searchengine.services.implementation.searchingImpl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import searchengine.dto.indexing.LemmaDto;
 import searchengine.dto.indexing.PageDto;
+import searchengine.services.utilities.LemmaFinder;
 
 import java.util.*;
 import java.util.regex.Matcher;
