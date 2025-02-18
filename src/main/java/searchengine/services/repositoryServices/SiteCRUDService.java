@@ -10,6 +10,7 @@ import searchengine.model.Status;
 import searchengine.repositories.SiteRepository;
 
 import java.time.Instant;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +49,14 @@ public class SiteCRUDService {
         if (siteRepository.existsSiteByUrl(url)) {
             siteRepository.deleteSiteByUrl(url);
         }
+    }
+
+    public int countNumberOfSitesInDB() {
+        return (int) siteRepository.count();
+    }
+
+    public List<Site> getAllSites() {
+        return siteRepository.findAll();
     }
 
     public SiteDto createSiteDto(searchengine.config.Site site) {

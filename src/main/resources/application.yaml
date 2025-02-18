@@ -10,7 +10,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
 
 indexing-settings:
   sites:
@@ -24,8 +24,8 @@ indexing-settings:
 #      name: IPFran
 #    - url: https://dimonvideo.ru/
 #      name: DimonVideo
-    - url: https://nikoartgallery.com/
-      name: NikoGallery
+#    - url: https://nikoartgallery.com/
+#      name: NikoGallery
 #    - url: https://www.lutherancathedral.ru/
 #      name: LutheranCathedral
     - url: https://dombulgakova.ru/

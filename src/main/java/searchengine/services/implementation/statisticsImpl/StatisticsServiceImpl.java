@@ -3,13 +3,12 @@ package searchengine.services.implementation.statisticsImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import searchengine.config.Site;
-import searchengine.config.SitesList;
 import searchengine.dto.indexing.SiteDto;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.model.Site;
 import searchengine.services.api.StatisticsService;
 import searchengine.services.repositoryServices.LemmaCRUDService;
 import searchengine.services.repositoryServices.PageCRUDService;
@@ -26,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
 
-    private final SitesList sites;
     private final PageCRUDService pageCRUDService;
     private final SiteCRUDService siteCRUDService;
     private final LemmaCRUDService lemmaCRUDService;
@@ -35,10 +33,10 @@ public class StatisticsServiceImpl implements StatisticsService {
     public StatisticsResponse getStatistics() {
         TotalStatistics total = new TotalStatistics();
         List<DetailedStatisticsItem> detailed = new CopyOnWriteArrayList<>();
-        total.setSites(sites.getSites().size());
+        total.setSites(siteCRUDService.countNumberOfSitesInDB());
         total.setIndexing(true);
 
-        List<Site> sitesList = sites.getSites();
+        List<Site> sitesList = siteCRUDService.getAllSites();
         ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
         try {
