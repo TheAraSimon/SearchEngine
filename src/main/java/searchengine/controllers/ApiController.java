@@ -1,5 +1,6 @@
 package searchengine.controllers;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.indexing.IndexingResponse;
@@ -13,21 +14,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api")
 public class ApiController {
 
     private final StatisticsService statisticsService;
     private final SiteIndexingService siteIndexingService;
     private final SearchingService searchingService;
-
-
-    public ApiController(StatisticsService statisticsService,
-                         SiteIndexingService siteIndexingService,
-                         SearchingService searchingService) {
-        this.statisticsService = statisticsService;
-        this.siteIndexingService = siteIndexingService;
-        this.searchingService = searchingService;
-    }
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {

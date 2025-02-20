@@ -19,12 +19,12 @@ import searchengine.services.utilities.UrlConnector;
 import java.net.SocketTimeoutException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.RecursiveAction;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @RequiredArgsConstructor
 @Slf4j
-public class SiteMapper extends RecursiveTask<Void> {
+public class SiteMapper extends RecursiveAction {
     private static final Set<String> visitedUrls = ConcurrentHashMap.newKeySet();
 
     private final String url;
@@ -49,15 +49,15 @@ public class SiteMapper extends RecursiveTask<Void> {
     }
 
     @Override
-    public Void compute() {
+    public void compute() {
         if (!visitedUrls.add(url) || Thread.currentThread().isInterrupted() || stopRequested.get()) {
-            return null;
+            return;
         }
         try {
             UrlConnector urlConnector = new UrlConnector(url, connectionProfile);
             int statusCode = urlConnector.getStatusCode();
             if (statusCode >= 400) {
-                return null;
+                return;
             }
             Document document = urlConnector.getDocument();
             PageDto pageDto = pageCRUDService.createPageDto(url, document, statusCode, siteDto);
@@ -76,9 +76,8 @@ public class SiteMapper extends RecursiveTask<Void> {
             Thread.sleep(500 + (int) (Math.random() * 4500));
         } catch (UnsupportedMimeTypeException | SocketTimeoutException ignored) {
         } catch (Exception e) {
-            log.error("Error processing URL: {}", url, e);
+            log.error("Error processing URL: {}. Error message: {}", url, e.getMessage());
         }
-        return null;
     }
 
     private void parsePage(Document document) {

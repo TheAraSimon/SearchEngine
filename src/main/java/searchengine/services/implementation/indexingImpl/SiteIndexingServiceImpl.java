@@ -40,15 +40,16 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     @Override
     public IndexingResponse startIndexing() {
         if (isIndexing.get()) {
+            log.error("Indexing is already in progress");
             return indexingResponser.createErrorResponse("Индексация уже в процессе");
         }
 
         List<Site> sitesList = sites.getSites().stream().distinct().toList();
         if (sitesList.isEmpty()) {
+            log.error("The list of sites from the configuration file is empty");
             return indexingResponser.createErrorResponse("Список сайтов из конфигурационного файла пуст");
         }
 
-        isIndexing.set(true);
         SiteMapper.requestStart();
         SiteMapper.clearVisitedUrls();
 
@@ -67,7 +68,6 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             return indexingResponser.createErrorResponse("Индексация не запущена");
         }
         SiteMapper.requestStop();
-        executorService.shutdown();
         executorService.shutdownNow();
         isIndexing.set(false);
         log.info("Indexing was stopped by user");
@@ -105,34 +105,49 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             int pageId = pageCRUDService.getByUrlAndSiteId(pageDto.getPath(), pageDto.getSite()).getId();
             List<IndexDto> indexList = lemmaCRUDService.saveLemmasListAndCreateIndexes(lemmas, pageId, siteId);
             indexCRUDService.addAll(indexList);
+            log.info("Indexing was completed for the page: {}", url);
             return indexingResponser.createSuccessfulResponse();
         } catch (Exception e) {
+            log.info("Error indexing page {} : {]", url + e.getMessage());
             return indexingResponser.createErrorResponse(e.getMessage());
         }
     }
 
     private void indexSite(Site site) {
+        isIndexing.set(true);
         try {
             siteCRUDService.deleteByUrl(site.getUrl());
             SiteDto siteDto = siteCRUDService.createSiteDto(site);
             siteCRUDService.create(siteDto);
             if (isSiteAccessible(site)) {
-                ForkJoinPool pool = new ForkJoinPool();
-                pool.invoke(new SiteMapper(site.getUrl(), siteDto, connectionProfile,
-                        pageCRUDService, siteCRUDService, lemmaCRUDService, indexCRUDService));
-                pool.shutdown();
-                if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
-                    String errorMessage = "Тайм-аут индексации (более 1 часа) для сайта: " + site.getUrl();
-                    log.warn("Indexing timeout (more than 1 hour) for site: " + site.getUrl());
-                    updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
-                } else if (pool.awaitQuiescence(60, TimeUnit.MINUTES)) {
-                    updateSiteStatus(site.getUrl(), Status.INDEXED, null);
+                try {
+                    ForkJoinPool pool = new ForkJoinPool();
+                    pool.invoke(new SiteMapper(site.getUrl(), siteDto, connectionProfile,
+                            pageCRUDService, siteCRUDService, lemmaCRUDService, indexCRUDService));
+                    pool.shutdown();
+                    if (!pool.awaitTermination(60, TimeUnit.MINUTES)) {
+                        String errorMessage = "Тайм-аут индексации (более 1 часа) для сайта: " + site.getUrl();
+                        log.warn("Indexing timeout (more than 1 hour) for site: " + site.getUrl());
+                        updateSiteStatus(site.getUrl(), Status.FAILED, errorMessage);
+                        isIndexing.set(false);
+                    }
+                    if (!isIndexing.get()) {
+                        log.warn("Indexing was stopped for the site: {}", site.getUrl());
+                        updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация остановлена пользователем");
+                        isIndexing.set(false);
+                    } else {
+                        log.info("Indexing was completed for the site: {}", site.getUrl());
+                        updateSiteStatus(site.getUrl(), Status.INDEXED, null);
+                        isIndexing.set(false);
+                    }
+                } catch (InterruptedException e) {
+                    log.warn("Indexing was stopped for the site: {}", site.getUrl());
+                    updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация сайта была прервана по причине: " + e.getMessage());
+                    isIndexing.set(false);
                 }
             }
-        } catch (InterruptedException e) {
-            log.warn("Indexing was stopped for the site: {}", site.getUrl());
-            updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация остановлена пользователем");
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             log.error("Error indexing site {}: {}", site.getUrl(), e.getMessage());
             updateSiteStatus(site.getUrl(), Status.FAILED, "Ошибка во время индексации сайта: " + e.getMessage());
         }
