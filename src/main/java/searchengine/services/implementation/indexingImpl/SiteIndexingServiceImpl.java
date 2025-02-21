@@ -134,16 +134,16 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
                     if (!isIndexing.get()) {
                         log.warn("Indexing was stopped for the site: {}", site.getUrl());
                         updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация остановлена пользователем");
-                        isIndexing.set(false);
+                        stopIndexingStatus();
                     } else {
                         log.info("Indexing was completed for the site: {}", site.getUrl());
                         updateSiteStatus(site.getUrl(), Status.INDEXED, null);
-                        isIndexing.set(false);
+                        stopIndexingStatus();
                     }
                 } catch (InterruptedException e) {
                     log.warn("Indexing was stopped for the site: {}", site.getUrl());
-                    updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация сайта была прервана по причине: " + e.getMessage());
-                    isIndexing.set(false);
+                    updateSiteStatus(site.getUrl(), Status.FAILED, "Индексация остановлена пользователем");
+                    stopIndexingStatus();
                 }
             }
         }
@@ -190,5 +190,11 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
 
     private boolean isValidUrl(String url) {
         return sites.getSites().stream().anyMatch(site -> url.startsWith(site.getUrl()));
+    }
+
+    private void stopIndexingStatus (){
+        if (siteCRUDService.getAllSites().stream().noneMatch(item -> "INDEXING".equals(item.getStatus().toString()))){
+            isIndexing.set(false);
+        }
     }
 }
