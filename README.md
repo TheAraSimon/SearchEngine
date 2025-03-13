@@ -17,8 +17,10 @@ Search Engine is a high-performance web indexing and search system designed for 
 - **Search relevant pages** in Search tab using keywords. If no site is chosen, the search will be done throughout all indexed sites.
 
 ## Stack of Technologies and Libraries
-Spring Framework // MySQL // Jackson // Lombok / Jsoup / Lucene.morphology
+Spring Framework // PostgreSQL // Jackson // Lombok // Jsoup // Lucene.morphology // Liquibase
 
 ## How to Run
-Recommended to have JDK 22 and MySQL installed on your PC. Search_engine schema must be created on DataBase. Run the program in the IDE, navigate to the browser path localhost:8080
+Run PostgreSQL container in Docker. Use the command below in Terminal:
+docker run -p 5432:5432 --name search_engine -e POSTGRES_PASSWORD=testtest -e POSTGRES_USER=AraSimon -e POSTGRES_DB=search_engine -d postgres:14
+Recommended to have JDK 22 installed on your PC. Run the program in the IDE, navigate to the browser path localhost:8080
 Check the settings (application.yaml) if required.

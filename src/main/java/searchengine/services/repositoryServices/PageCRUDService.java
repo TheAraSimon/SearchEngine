@@ -52,7 +52,7 @@ public class PageCRUDService {
     }
 
     public List<PageDto> findPagesByIds(List<Integer> ids) {
-        return pageRepository.findPagesByIds(ids).stream().map(this::mapToDto).toList();
+        return pageRepository.findByIdIn(ids).stream().map(this::mapToDto).toList();
     }
 
     public int getPageCountBySiteId(Integer siteId) {

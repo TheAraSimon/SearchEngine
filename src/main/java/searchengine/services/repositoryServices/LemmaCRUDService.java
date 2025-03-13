@@ -26,7 +26,7 @@ public class LemmaCRUDService {
 
     public void deleteLemmasByIds(List<Integer> lemmaIds) {
         if (!lemmaIds.isEmpty()) {
-            lemmaRepository.deleteByIds(lemmaIds);
+            lemmaRepository.deleteByIdIn(lemmaIds);
         }
     }
 
@@ -78,7 +78,7 @@ public class LemmaCRUDService {
     }
 
     public List<LemmaDto> getSortedLemmaDtos(List<String> lemmas, Integer siteId) {
-        List<Lemma> sortedLemmas = lemmaRepository.findLemmasBySiteAndSort(lemmas, siteId);
+        List<Lemma> sortedLemmas = lemmaRepository.findByLemmaInAndSiteIdOrderByFrequencyAsc(lemmas, siteId);
         return sortedLemmas.stream().map(LemmaCRUDService::mapToDto).toList();
     }
 }

@@ -24,10 +24,5 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
-
-        <sql dbms="postgresql">
-            CREATE TYPE status_enum AS ENUM ('INDEXING', 'INDEXED', 'FAILED');
-            ALTER TABLE site ALTER COLUMN status TYPE status_enum USING status::status_enum;
-        </sql>
     </changeSet>
 </databaseChangeLog>

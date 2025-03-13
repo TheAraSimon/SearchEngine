@@ -2,18 +2,17 @@ server:
   port: 8080
 spring:
   datasource:
-    username: root
+    url: jdbc:postgresql://localhost:5432/search_engine
+    username: AraSimon
     password: testtest
-    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+    driver-class-name: org.postgresql.Driver
   jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
   liquibase:
     change-log: classpath:db.changelog/db.changelog-master.xml
     enabled: true
+    drop-first: false
 
 indexing-settings:
   sites:
