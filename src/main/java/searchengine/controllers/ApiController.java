@@ -1,7 +1,6 @@
 package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.dto.searching.SearchingResponse;
@@ -23,32 +22,32 @@ public class ApiController {
     private final SearchingService searchingService;
 
     @GetMapping("/statistics")
-    public ResponseEntity<StatisticsResponse> statistics() {
-        return ResponseEntity.ok(statisticsService.getStatistics());
+    public StatisticsResponse statistics() {
+        return statisticsService.getStatistics();
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<IndexingResponse> startIndexing() {
-        return ResponseEntity.ok(siteIndexingService.startIndexing());
+    public IndexingResponse startIndexing() {
+        return siteIndexingService.startIndexing();
     }
 
     @GetMapping("/stopIndexing")
-    public ResponseEntity<IndexingResponse> stopIndexing() {
-        return ResponseEntity.ok(siteIndexingService.stopIndexing());
+    public IndexingResponse stopIndexing() {
+        return siteIndexingService.stopIndexing();
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<IndexingResponse> indexPage(@RequestParam String url) {
-        return ResponseEntity.ok(siteIndexingService.indexPage(url));
+    public IndexingResponse indexPage(@RequestParam String url) {
+        return siteIndexingService.indexPage(url);
     }
 
     @GetMapping("/search")
-    public ResponseEntity<SearchingResponse> search(
+    public SearchingResponse search(
             @RequestParam String query,
             @RequestParam(required = false) String site,
             @RequestParam(required = false, defaultValue = "0") int offset,
             @RequestParam(required = false, defaultValue = "20") int limit) {
         List<String> sitesList = (site == null) ? searchingService.getSiteUrlList() : new ArrayList<>(List.of(site));
-        return ResponseEntity.ok(searchingService.search(query, sitesList, offset, limit));
+        return searchingService.search(query, sitesList, offset, limit);
     }
 }

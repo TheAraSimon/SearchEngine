@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <include file="db.changelog/20250304215730_added_entity_Site.xml"/>
+    <include file="db.changelog/20250304215730_added_entity_Page.xml"/>
+    <include file="db.changelog/20250304215730_added_entity_Lemma.xml"/>
+    <include file="db.changelog/20250304215730_added_entity_Index.xml"/>
+</databaseChangeLog>

@@ -10,7 +10,7 @@ import javax.persistence.*;
 @Entity
 @Getter
 @Setter
-@Table(name = "`index`")
+@Table(name = "index_table")
 public class Index {
 
     @Id
@@ -28,6 +28,6 @@ public class Index {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private Lemma lemma;
 
-    @Column(name = "`rank`", nullable = false, columnDefinition = "FLOAT")
+    @Column(name = "ranking", nullable = false, columnDefinition = "FLOAT")
     private Float rank;
 }

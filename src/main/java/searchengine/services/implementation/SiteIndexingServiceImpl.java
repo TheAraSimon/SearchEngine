@@ -1,4 +1,4 @@
-package searchengine.services.implementation.indexingImpl;
+package searchengine.services.implementation;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,6 +7,7 @@ import searchengine.config.ConnectionProfile;
 import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.indexing.*;
+import searchengine.exceptions.indexingExceptions.*;
 import searchengine.model.Status;
 import searchengine.services.utilities.LemmaFinder;
 import searchengine.services.api.SiteIndexingService;
@@ -34,20 +35,19 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
     private final LemmaCRUDService lemmaCRUDService;
     private final IndexCRUDService indexCRUDService;
     private ExecutorService executorService;
-    private final IndexingResponser indexingResponser = new IndexingResponser();
     private final AtomicBoolean isIndexing = new AtomicBoolean(false);
 
     @Override
     public IndexingResponse startIndexing() {
         if (isIndexing.get()) {
             log.error("Indexing is already in progress");
-            return indexingResponser.createErrorResponse("Индексация уже в процессе");
+            throw new IndexingInProcessException();
         }
 
         List<Site> sitesList = sites.getSites().stream().distinct().toList();
         if (sitesList.isEmpty()) {
             log.error("The list of sites from the configuration file is empty");
-            return indexingResponser.createErrorResponse("Список сайтов из конфигурационного файла пуст");
+            throw new EmptySitesListException();
         }
 
         SiteMapper.requestStart();
@@ -58,34 +58,36 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
 
         executorService.shutdown();
         log.info("Indexing started for {} sites", sitesList.size());
-        return indexingResponser.createSuccessfulResponse();
+        return createSuccessfulResponse();
     }
 
     @Override
     public IndexingResponse stopIndexing() {
         if (!isIndexing.get()) {
             log.warn("Indexing has not been started yet");
-            return indexingResponser.createErrorResponse("Индексация не запущена");
+            throw new IndexingNotStartedException();
         }
         SiteMapper.requestStop();
         executorService.shutdownNow();
         isIndexing.set(false);
         log.info("Indexing was stopped by user");
-        return indexingResponser.createSuccessfulResponse();
+        return createSuccessfulResponse();
     }
 
     @Override
     public IndexingResponse indexPage(String url) {
         if (isIndexing.get()) {
-            return indexingResponser.createErrorResponse("Индексация уже в процессе");
+            log.error("Indexing is already in progress");
+            throw new IndexingInProcessException();
         }
         if (!isValidUrl(url)) {
-            log.warn("This page ({}) is outside the sites specified in the configuration file", url);
-            return indexingResponser.createErrorResponse("Данная страница находится за пределами сайтов, указанных в конфигурационном файле");
+            log.error("This page ({}) is outside the sites specified in the configuration file", url);
+            throw new PageIsNotRelatedToSpecifiedSitesException();
         }
         Site site = getSiteFromUrl(url);
         if (!isSiteAccessible(site)) {
-            return indexingResponser.createErrorResponse("Данная страница недоступна");
+            log.error("This page is unavailable.");
+            throw new PageIsNotAvailableException();
         }
         try {
             String pageUrl = url.substring(site.getUrl().length() - 1);
@@ -106,10 +108,10 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
             List<IndexDto> indexList = lemmaCRUDService.saveLemmasListAndCreateIndexes(lemmas, pageId, siteId);
             indexCRUDService.addAll(indexList);
             log.info("Indexing was completed for the page: {}", url);
-            return indexingResponser.createSuccessfulResponse();
+            return createSuccessfulResponse();
         } catch (Exception e) {
             log.info("Error indexing page {} : {]", url + e.getMessage());
-            return indexingResponser.createErrorResponse(e.getMessage());
+            throw new IndexingRuntimeException();
         }
     }
 
@@ -196,5 +198,11 @@ public class SiteIndexingServiceImpl implements SiteIndexingService {
         if (siteCRUDService.getAllSites().stream().noneMatch(item -> "INDEXING".equals(item.getStatus().toString()))){
             isIndexing.set(false);
         }
+    }
+
+    private IndexingResponse createSuccessfulResponse() {
+        IndexingResponse response = new IndexingResponse();
+        response.setResult(true);
+        return response;
     }
 }

@@ -1,4 +1,4 @@
-package searchengine.services.implementation.searchingImpl;
+package searchengine.services.implementation;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +11,9 @@ import searchengine.dto.indexing.PageDto;
 import searchengine.dto.indexing.SiteDto;
 import searchengine.dto.searching.SearchResult;
 import searchengine.dto.searching.SearchingResponse;
+import searchengine.exceptions.searchingExceptions.EmptyIndexListException;
+import searchengine.exceptions.searchingExceptions.EmptySearchQueryException;
+import searchengine.exceptions.searchingExceptions.IncorrectSearchQueryException;
 import searchengine.services.utilities.LemmaFinder;
 import searchengine.services.api.SearchingService;
 import searchengine.services.repositoryServices.IndexCRUDService;
@@ -30,7 +33,6 @@ public class SearchingServiceImpl implements SearchingService {
     private final PageCRUDService pageCRUDService;
     private final SiteCRUDService siteCRUDService;
     private final SitesList sites;
-    private final SearchingResponser searchingResponser = new SearchingResponser();
     private final List<SearchResult> data = new CopyOnWriteArrayList<>();
 
     @Override
@@ -44,16 +46,20 @@ public class SearchingServiceImpl implements SearchingService {
             return getPaginatedResponse(offset, limit);
         }
         if (query.isEmpty()) {
-            return searchingResponser.createErrorResponse("Задан пустой поисковый запрос");
+            log.error("An empty search query was specified");
+            throw new EmptySearchQueryException();
         }
+
         if (indexCRUDService.isTableEmpty()) {
-            return searchingResponser.createErrorResponse("Ни одна страница не была проиндексирована");
+            log.error("No pages were indexed");
+            throw new EmptyIndexListException();
         }
 
         data.clear();
         List<String> notCommonLemmas = extractNotCommonLemmas(query);
         if (notCommonLemmas.isEmpty()) {
-            return searchingResponser.createErrorResponse("Задан некорректный поисковый запрос");
+            log.error("An incorrect search query was specified");
+            throw new IncorrectSearchQueryException();
         }
 
         processSitesParallel(sitesList, notCommonLemmas);
@@ -104,7 +110,7 @@ public class SearchingServiceImpl implements SearchingService {
         int start = Math.min(offset, data.size());
         int end = Math.min(start + limit, data.size());
         List<SearchResult> paginatedResults = data.subList(start, end);
-        return searchingResponser.createSuccessfulResponse(data.size(), paginatedResults);
+        return createSuccessfulResponse(data.size(), paginatedResults);
     }
 
     private List<PageDto> findRelevantPages(List<LemmaDto> sortedLemmaDtos, SiteDto siteDto) {
@@ -161,5 +167,13 @@ public class SearchingServiceImpl implements SearchingService {
 
     private String getTitle(PageDto pageDto) {
         return Jsoup.parse(pageDto.getContent()).title();
+    }
+
+    private SearchingResponse createSuccessfulResponse(int count, List<SearchResult> data) {
+        SearchingResponse response = new SearchingResponse();
+        response.setCount(count);
+        response.setData(data);
+        response.setResult(true);
+        return response;
     }
 }
