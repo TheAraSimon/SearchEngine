@@ -27,7 +27,7 @@ public class SnippetGenerator {
             }
             int start = Math.max(0, index - 30);
             int end = Math.min(text.length(), index + 150);
-            String snippet = text.substring(start, end);
+            String snippet = extractText(text.substring(start, end));
             return highlightKeywords(snippet, wordForms);
         } catch (Exception e) {
             log.warn("Snippet was not generated: " + e.getMessage());
@@ -66,7 +66,7 @@ public class SnippetGenerator {
             matcher.appendReplacement(result, "<b>" + matcher.group() + "</b>");
         }
         matcher.appendTail(result);
-        return extractText(result.toString());
+        return result.toString();
     }
 
     public static String extractText(String input) {
