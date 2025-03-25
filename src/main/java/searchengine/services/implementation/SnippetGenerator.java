@@ -2,6 +2,8 @@ package searchengine.services.implementation;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import searchengine.dto.indexing.LemmaDto;
 import searchengine.dto.indexing.PageDto;
 import searchengine.services.utilities.LemmaFinder;
@@ -17,7 +19,9 @@ public class SnippetGenerator {
     private final List<LemmaDto> lemmas;
 
     public String generateSnippet() {
-        String text = pageDto.getContent().toLowerCase();
+        String allPageText = pageDto.getContent().toLowerCase();
+        Document doc = Jsoup.parse(allPageText);
+        String text = doc.body().html();
         try {
             LemmaFinder lemmaFinder = LemmaFinder.getInstance();
             Set<String> wordForms = getAllWordForms(lemmas, lemmaFinder);
@@ -25,7 +29,7 @@ public class SnippetGenerator {
             if (index == -1) {
                 return "";
             }
-            int start = Math.max(0, index - 30);
+            int start = Math.max(0, index - 150);
             int end = Math.min(text.length(), index + 150);
             String snippet = extractText(text.substring(start, end));
             return highlightKeywords(snippet, wordForms);
